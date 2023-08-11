@@ -13,7 +13,7 @@ The code is pretty straightforward, it's just a simple Websocket server that lis
 
 Then in HMessager, go to the settings screen and enter the IP and port of your server.
 
-![setting screen](images/settingsScreen.png)
+<img alt="setting screen" src="images/settingsScreen.png" width="300"/>
 
 ---
 
@@ -27,7 +27,7 @@ To create a conversation with someone, you have to scan his QR code and he must 
 4. The other person must scan your QR code
 5. You can now create the conversation
 
-![scan screen](images/newConvScreen.png)
+<img alt="scan screen" src="images/newConvScreen.png" width="300"/>
 
 ---
 
@@ -43,7 +43,7 @@ Their are also encrypted with different keys derived from a password that you ha
 The first time you open the app, you need to choose your password, this password will then be used to derive a master key.
 If you forget your password, you will lose all your data and it's impossible to recover them so be aware of that.
 
-![password screen](images/firstLaunchScreen.png)
+<img alt="password screen" src="images/firstLaunchScreen.png" width="300"/>
 
 ### Algorithms used
 
@@ -70,7 +70,7 @@ Currently group conversations are not supported, it's only possible to chat with
 
 Here an exemple of a conversation with the app.
 
-![home screen](images/convScreen.png)
+<img alt="home screen" src="images/convScreen.png" width="300"/>
 
 ---
 
