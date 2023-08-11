@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">HMessager</string>
+    <string name="title_activity_conv_list">ConvListActivity</string>
+    <string name="title_activity_new_conv">NewConvActivity</string>
+    <string name="first_password_title">Create your password</string>
+    <string name="first_password_explanation">If you lose it you lose all your data and it\'s impossible to recover them.</string>
+    <string name="error_password_no_match">Password doesn\'t match</string>
+    <string name="warning_password_level_strong">Strong</string>
+    <string name="warning_password_level_weak">Weak</string>
+    <string name="warning_password_level">Password level: </string>
+    <string name="title_activity_conv">ConvActivity</string>
+    <string name="title_activity_settings">SettingsActivity</string>
+</resources>
