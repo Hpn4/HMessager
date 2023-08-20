@@ -12,6 +12,8 @@ public class ConvMetadata {
 
     private Date lastMessageDate;
 
+    private int unreadCount;
+
     private final int convId;
 
     public ConvMetadata(int convId) {
@@ -48,6 +50,14 @@ public class ConvMetadata {
 
     public void setLastMessageDate(Date lastMessageDate) {
         this.lastMessageDate = lastMessageDate;
+    }
+
+    public int getUnreadCount() {
+        return unreadCount;
+    }
+
+    public void setUnreadCount(int unreadCount) {
+        this.unreadCount = unreadCount;
     }
 
     public int getConvId() {

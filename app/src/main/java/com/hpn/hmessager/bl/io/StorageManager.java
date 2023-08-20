@@ -313,13 +313,10 @@ public class StorageManager {
         ConvMetadata metadata = new ConvMetadata(convId);
 
         try (HByteArrayInputStream bis = new HByteArrayInputStream(plain)) {
-            int size = bis.readInt();
-            metadata.setName(bis.readString(size));
+            metadata.setName(bis.readString());
 
             if (bis.available() > 0) {
-                size = byteToInt(bis.readBytes(4), 0);
-
-                metadata.setLastMessage(bis.readString(size));
+                metadata.setLastMessage(bis.readString());
                 metadata.setLastMessageDate(bis.readDate());
             }
         } catch (IOException e) {

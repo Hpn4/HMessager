@@ -12,7 +12,7 @@ import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 
-public class ConversationStorage {
+public class ConversationStorageEM {
 
     private static final byte[] INFO = "msg chain key".getBytes(StandardCharsets.UTF_8);
 
@@ -34,7 +34,7 @@ public class ConversationStorage {
 
 
     // Called only from StorageManager
-    public ConversationStorage(Conversation conv, StorageManager sm) {
+    public ConversationStorageEM(Conversation conv, StorageManager sm) {
         rootKey = sm.deriveConvStorageKey(conv.getConvId());
         this.conv = conv;
         this.sm = sm;

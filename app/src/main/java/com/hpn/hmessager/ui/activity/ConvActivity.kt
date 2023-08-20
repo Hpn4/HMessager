@@ -12,13 +12,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.exclude
@@ -33,22 +33,19 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,8 +58,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
@@ -70,17 +67,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.core.content.FileProvider
 import androidx.core.view.WindowCompat
-import coil.compose.AsyncImage
 import com.hpn.hmessager.R
 import com.hpn.hmessager.bl.conversation.Conversation
 import com.hpn.hmessager.bl.conversation.Conversations
 import com.hpn.hmessager.bl.conversation.Message
-import com.hpn.hmessager.bl.conversation.MessageType
 import com.hpn.hmessager.bl.io.ConversationStorage
 import com.hpn.hmessager.bl.io.PaquetManager
 import com.hpn.hmessager.bl.io.StorageManager
-import com.hpn.hmessager.bl.user.LocalUser
 import com.hpn.hmessager.ui.composable.ConvTopBar
+import com.hpn.hmessager.ui.composable.DrawMsg
+import com.hpn.hmessager.ui.composable.MessageTextField
 import com.hpn.hmessager.ui.theme.HMessagerTheme
 import java.io.DataInputStream
 import java.io.File
@@ -105,8 +101,6 @@ class ConvActivity : ComponentActivity() {
         setContent {
             val msg = remember { mutableStateListOf<Message>() }
 
-            conv.initConv(msg)
-
             Conv(msg, conv) {
                 // Close connection
                 PaquetManager.close()
@@ -127,6 +121,7 @@ class ConvActivity : ComponentActivity() {
         conv: Conversation,
         onBackButton: () -> Unit,
     ) {
+        val context = LocalContext.current
         BackHandler {
             onBackButton()
         }
@@ -136,16 +131,10 @@ class ConvActivity : ComponentActivity() {
             Surface(
                 modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
             ) {
+                var scrollToBottom by remember { mutableStateOf(false) }
 
                 Scaffold(topBar = { ConvTopBar("conv.remoteUser.name", onBackButton) }, content = {
                     val lazyList = rememberLazyListState()
-
-                    LaunchedEffect(msg.size) {
-                        lazyList.animateScrollToItem(msg.size)
-                    }
-                    LaunchedEffect(lazyList.canScrollBackward) {
-                        if (!lazyList.canScrollBackward) conv.seePreviousMessages(10)
-                    }
 
                     LazyColumn(
                         modifier = Modifier
@@ -162,10 +151,33 @@ class ConvActivity : ComponentActivity() {
                             DrawMsg(message)
                         }
                     }
+
+                    LaunchedEffect(Unit) {
+                        conv.initConv(msg)
+                        scrollToBottom = true
+                    }
+
+                    LaunchedEffect(lazyList.firstVisibleItemIndex) {
+                        if (lazyList.firstVisibleItemIndex <= 3) {
+                            for (i in 0..20) {
+                                if (conv.seePreviousMessages()) lazyList.scrollToItem(lazyList.firstVisibleItemIndex + 1)
+                                else break
+                            }
+                        }
+                    }
+
+                    LaunchedEffect(scrollToBottom) {
+                        if (scrollToBottom) {
+                            if (msg.isNotEmpty()) lazyList.scrollToItem(msg.size - 1)
+                            scrollToBottom = false
+                        }
+                    }
+
                 }, bottomBar = {
-                    BottomBar { text, uris, type ->
-                        if (type == MessageType.TEXT) conv.sendText(text)
-                        else conv.sendMedias(uris, type)
+                    BottomBar { text, uris ->
+                        if (uris.isEmpty()) conv.sendText(text)
+                        else conv.sendMedias(uris, context)
+                        scrollToBottom = true
                     }
                 })
             }
@@ -173,84 +185,33 @@ class ConvActivity : ComponentActivity() {
     }
 
     @Composable
-    fun DrawMsg(message: Message) {
-        val you = message.user is LocalUser
-
-        val color =
-            if (you) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer
-        val isPhoto = message.type == MessageType.IMAGE
-
-        Row(
-            modifier = Modifier.fillMaxWidth(if (you) 1.0f else 0.7f),
-            horizontalArrangement = if (you) Arrangement.End else Arrangement.Start
-        ) {
-            Spacer(modifier = Modifier.width(10.dp))
-
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(color)
-                    .padding(if (isPhoto) 4.dp else 15.dp)
-            ) {
-
-                when (message.type) {
-                    MessageType.TEXT -> Text(
-                        text = message.data, color = MaterialTheme.colorScheme.onPrimary
-                    )
-
-                    MessageType.IMAGE -> AsyncImage(
-                        model = message.dataBytes,
-                        contentDescription = "Image",
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .fillMaxWidth(0.65f),
-                        contentScale = ContentScale.FillWidth,
-                        alignment = if (you) Alignment.CenterEnd else Alignment.CenterStart
-                    )
-
-                    MessageType.UNKNOWN -> Text(text = "Document", color = Color.Red)
-
-                    else -> Text("Flemme de coder", color = Color.Red)
-                }
-            }
-        }
-
-    }
-
-    @Composable
-    fun BottomBar(onSend: (String, List<ByteArray>, MessageType) -> Unit) {
+    fun BottomBar(onSend: (String, List<Uri>) -> Unit) {
         var message by remember { mutableStateOf("") }
         var attach by remember { mutableStateOf(false) }
-        var type by remember { mutableStateOf(MessageType.TEXT) }
-        val scroll = rememberScrollState()
 
-        var uris by remember { mutableStateOf<List<ByteArray>>(emptyList()) }
+        var uris by remember { mutableStateOf<List<Uri>>(emptyList()) }
         var tmpUriPicture by remember { mutableStateOf<Uri?>(null) }
 
         val context = LocalContext.current
-        val onChosen: (List<Uri>, MessageType) -> Unit = { medias, t ->
-            uris = readMedias(context, medias)
-            type = t
+        val onChosen: (List<Uri>) -> Unit = { medias ->
+            uris += medias
             attach = false
         }
 
-        val takePicture = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.TakePicture(),
-            onResult = { uri ->
-                if (uri && tmpUriPicture != null) onChosen.invoke(
-                    listOf(tmpUriPicture as Uri), type
-                )
-            })
+        val takePicture =
+            rememberLauncherForActivityResult(contract = ActivityResultContracts.TakePicture(),
+                onResult = { uri ->
+                    if (uri && tmpUriPicture != null) onChosen(listOf(tmpUriPicture as Uri))
+                })
 
         val onTakePicture: () -> Unit = {
             val file = File(context.cacheDir, "tmp_picture.jpg")
             file.createNewFile()
 
             tmpUriPicture = FileProvider.getUriForFile(
-                context, "com.hpn.hmessager.ui.activity.ConvActivity.provider",
-                file
+                context, "com.hpn.hmessager.ui.activity.ConvActivity.provider", file
             )
-            type = MessageType.IMAGE
+
             takePicture.launch(tmpUriPicture)
         }
 
@@ -270,33 +231,7 @@ class ConvActivity : ComponentActivity() {
                     .weight(1.0f)
                     .background(Color.Transparent)
             ) {
-
-                TextField(
-                    value = message,
-                    onValueChange = { message = it },
-                    maxLines = 6,
-                    trailingIcon = { Spacer(Modifier.padding(horizontal = 20.dp)) },
-                    modifier = Modifier
-                        .verticalScroll(scroll)
-                        .fillMaxWidth(),
-                    placeholder = { Text(text = "Message") },
-                    shape = RoundedCornerShape(25.dp),
-                    colors = TextFieldDefaults.colors(
-                        cursorColor = MaterialTheme.colorScheme.primary,
-
-                        focusedPlaceholderColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        unfocusedPlaceholderColor = MaterialTheme.colorScheme.onPrimaryContainer,
-
-                        focusedTextColor = MaterialTheme.colorScheme.onPrimary,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onPrimary,
-
-                        focusedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                    )
-                )
+                MessageTextField(text = message, onTextChanged = { message = it })
 
                 Row(
                     modifier = Modifier
@@ -306,8 +241,10 @@ class ConvActivity : ComponentActivity() {
                 ) {
 
                     // Put file
+                    var buttonAttachmentClick by remember { mutableStateOf(false) }
                     IconButton(onClick = {
-                        attach = true
+                        buttonAttachmentClick = !buttonAttachmentClick
+                        attach = buttonAttachmentClick
                     }) {
                         Icon(
                             modifier = Modifier.rotate(-45f),
@@ -338,9 +275,8 @@ class ConvActivity : ComponentActivity() {
                 Triple(
                     R.drawable.send_black_24dp, "Send"
                 ) {
-                    onSend(message, uris, type)
+                    onSend(message, uris)
                     uris = emptyList()
-                    type = MessageType.TEXT
                     message = ""
                 }
             }
@@ -361,20 +297,33 @@ class ConvActivity : ComponentActivity() {
             }
         }
 
-        if (attach) {
-            val padValue = WindowInsets.Companion.ime.exclude(WindowInsets.Companion.navigationBars)
-                .asPaddingValues()
+        // Attachment menu popup
+        val padValue = WindowInsets.Companion.ime.exclude(WindowInsets.Companion.navigationBars)
+            .asPaddingValues()
+        var bottomPadding = padValue.calculateBottomPadding()
+        val isOnKeyboard = bottomPadding > 5.dp
+        var yOffset = 0
 
-            Popup(alignment = Alignment.BottomStart,
-                offset = IntOffset(0, 0),
-                onDismissRequest = { attach = false }) {
+        if (!isOnKeyboard) {
+            bottomPadding = 220.dp
+            yOffset = -300
+        }
+
+        Popup(alignment = Alignment.BottomStart,
+            offset = IntOffset(0, yOffset),
+            onDismissRequest = { attach = false }) {
+            AnimatedVisibility(visible = attach) {
                 Box(
                     modifier = Modifier
-                        .background(MaterialTheme.colorScheme.primaryContainer)
-                        .height(padValue.calculateBottomPadding())
+                        .padding(horizontal = if (isOnKeyboard) 0.dp else 10.dp)
+                        .height(bottomPadding)
                         .fillMaxWidth()
+                        .clip(RoundedCornerShape(if (isOnKeyboard) 0.dp else 20.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
                 ) {
-                    AttachmentMenu(Modifier.align(Alignment.Center), onChosen, onTakePicture)
+                    AttachmentMenu(
+                        Modifier.align(Alignment.Center), isOnKeyboard, onChosen, onTakePicture
+                    )
                 }
             }
         }
@@ -405,54 +354,99 @@ class ConvActivity : ComponentActivity() {
     @Composable
     fun AttachmentMenu(
         modifier: Modifier,
-        onChosen: (List<Uri>, MessageType) -> Unit,
+        onKeyboard: Boolean = true,
+        onChosen: (List<Uri>) -> Unit,
         onTakePicture: () -> Unit,
     ) {
-        var type by remember { mutableStateOf(MessageType.IMAGE) }
-        val multipleMediasPicker = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.PickMultipleVisualMedia(),
-            onResult = { uris ->
-                onChosen(uris, type)
-            })
-        val multipleDocsPicker = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.GetMultipleContents(),
-            onResult = { uris ->
-                onChosen(uris, type)
-            })
+        var tmpUriVideo by remember { mutableStateOf<Uri?>(null) }
 
-        Row(
+        val context = LocalContext.current
+
+        val multipleMediasPicker =
+            rememberLauncherForActivityResult(contract = ActivityResultContracts.PickMultipleVisualMedia(),
+                onResult = { uris ->
+                    for(uri in uris) {
+                        println("Uri: $uri")
+                    }
+                    onChosen(uris)
+                })
+        val multipleDocsPicker =
+            rememberLauncherForActivityResult(contract = ActivityResultContracts.GetMultipleContents(),
+                onResult = { uris ->
+                    onChosen(uris)
+                })
+
+        val takeVideo =
+            rememberLauncherForActivityResult(contract = ActivityResultContracts.CaptureVideo(),
+                onResult = { uri ->
+                    if (uri && tmpUriVideo != null) onChosen(
+                        listOf(tmpUriVideo as Uri)
+                    )
+                })
+
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(4),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            horizontalArrangement = Arrangement.Center,
             modifier = modifier
-                .fillMaxWidth()
-                .padding(bottom = 80.dp),
-            horizontalArrangement = Arrangement.SpaceAround
+                .fillMaxSize()
+                .padding(top = if (onKeyboard) 50.dp else 25.dp)
         ) {
-            AttachmentItem(name = "Document", id = R.drawable.document_24dp, color = Color.Blue) {
-                type = MessageType.UNKNOWN
-                multipleDocsPicker.launch("*/*")
+            item {
+                AttachmentItem(
+                    name = "Picture", id = R.drawable.picture_24dp, color = Color.Magenta
+                ) {
+                    multipleMediasPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }
             }
 
-            AttachmentItem(name = "Picture", id = R.drawable.picture_24dp, color = Color.Magenta) {
-                type = MessageType.IMAGE
-                multipleMediasPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            item {
+                AttachmentItem(
+                    name = "Video", id = R.drawable.movie_black_24dp, color = Color.Cyan
+                ) {
+                    multipleMediasPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+                }
             }
 
-            AttachmentItem(
-                name = "Camera",
-                id = R.drawable.camera_svgrepo,
-                color = Color.Green,
-                onClick = onTakePicture
-            )
-
-            AttachmentItem(name = "Audio", id = R.drawable.audio_24dp, color = Color.Red) {
-                type = MessageType.AUDIO
-                multipleDocsPicker.launch("audio/*")
+            item {
+                AttachmentItem(name = "Audio", id = R.drawable.audio_24dp, color = Color.Red) {
+                    multipleDocsPicker.launch("audio/*")
+                }
             }
 
-            AttachmentItem(
-                name = "Video", id = R.drawable.videocam_black_24dp, color = Color.Cyan
-            ) {
-                type = MessageType.VIDEO
-                multipleMediasPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+            item {
+                AttachmentItem(
+                    name = "Document", id = R.drawable.document_24dp, color = Color.Blue
+                ) {
+                    multipleDocsPicker.launch("*/*")
+                }
+            }
+
+            item {
+                AttachmentItem(
+                    name = "Take picture",
+                    id = R.drawable.camera_svgrepo,
+                    color = Color.Green,
+                    onClick = onTakePicture
+                )
+            }
+
+            item {
+                AttachmentItem(
+                    name = "Take video",
+                    id = R.drawable.videocam_black_24dp,
+                    color = Color.LightGray
+                ) {
+                    val file = File(context.cacheDir, "tmp_video.mp4")
+                    file.createNewFile()
+
+                    tmpUriVideo = FileProvider.getUriForFile(
+                        context, "com.hpn.hmessager.ui.activity.ConvActivity.provider", file
+                    )
+
+                    takeVideo.launch(tmpUriVideo)
+                }
             }
         }
     }
@@ -463,11 +457,18 @@ class ConvActivity : ComponentActivity() {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            val darker1 =
+                Color(color.red * 0.85f, color.green * 0.85f, color.blue * 0.85f, color.alpha)
+            val darker =
+                Color(color.red * 0.75f, color.green * 0.75f, color.blue * 0.75f, color.alpha)
             IconButton(
-                onClick = onClick,
-                modifier = Modifier
+                onClick = onClick, modifier = Modifier
                     .clip(CircleShape)
-                    .background(color)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(darker1, darker), startY = 50f, endY = 80f
+                        )
+                    )
                     .padding(3.dp)
             ) {
                 Icon(

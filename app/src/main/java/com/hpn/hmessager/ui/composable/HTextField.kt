@@ -6,17 +6,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldColors
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +37,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -57,7 +63,7 @@ private const val REGEX_STRONG_PASSWORD =
 
 
 @Composable
-fun GetTextFieldColors(): TextFieldColors {
+fun getTextFieldColors(): TextFieldColors {
     return OutlinedTextFieldDefaults.colors(
         focusedPlaceholderColor = MaterialTheme.colorScheme.onPrimaryContainer,
         focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -73,7 +79,7 @@ fun GetTextFieldColors(): TextFieldColors {
 }
 
 @Composable
-fun GetTextFieldColorsGood(): TextFieldColors {
+fun getTextFieldColorsGood(): TextFieldColors {
     return OutlinedTextFieldDefaults.colors(
         focusedPlaceholderColor = MaterialTheme.colorScheme.onPrimaryContainer,
         focusedBorderColor = MaterialTheme.colorScheme.tertiary,
@@ -89,6 +95,42 @@ fun GetTextFieldColorsGood(): TextFieldColors {
 }
 
 @Composable
+fun MessageTextField(
+    text: String,
+    onTextChanged: (text: String) -> Unit
+) {
+    TextField(
+        value = text,
+        onValueChange = onTextChanged,
+        maxLines = 6,
+        trailingIcon = { Spacer(Modifier.padding(horizontal = 20.dp)) },
+        modifier = Modifier
+            .verticalScroll(rememberScrollState())
+            .fillMaxWidth(),
+        placeholder = { Text(text = "Message") },
+        shape = RoundedCornerShape(25.dp),
+        colors = TextFieldDefaults.colors(
+            cursorColor = MaterialTheme.colorScheme.primary,
+
+            focusedPlaceholderColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            unfocusedPlaceholderColor = MaterialTheme.colorScheme.onPrimaryContainer,
+
+            focusedTextColor = MaterialTheme.colorScheme.onPrimary,
+            unfocusedTextColor = MaterialTheme.colorScheme.onPrimary,
+
+            focusedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            unfocusedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+        ),
+        keyboardOptions = KeyboardOptions(
+            capitalization = KeyboardCapitalization.Sentences,
+        ),
+    )
+}
+
+@Composable
 fun SimpleTextField(text: String,
                     modifier: Modifier = Modifier,
                     onTextChanged: (text: String) -> Unit,
@@ -100,7 +142,7 @@ fun SimpleTextField(text: String,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         label = { Text(label) },
         placeholder = { Text(placeholder) },
-        colors = GetTextFieldColors(),
+        colors = getTextFieldColors(),
         shape = RoundedCornerShape(20),
         modifier = modifier
     )
@@ -166,7 +208,7 @@ fun PasswordTextField(
                     )
                 }
             },
-            colors = if (isGood) GetTextFieldColorsGood() else GetTextFieldColors(),
+            colors = if (isGood) getTextFieldColorsGood() else getTextFieldColors(),
             isError = error
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -267,7 +309,7 @@ fun ConfirmPasswordTextField(
                     )
                 }
             },
-            colors = if (isGood) GetTextFieldColorsGood() else GetTextFieldColors()
+            colors = if (isGood) getTextFieldColorsGood() else getTextFieldColors()
         )
         Spacer(modifier = Modifier.height(8.dp))
         if (confirmText != text && text.isNotEmpty()) {

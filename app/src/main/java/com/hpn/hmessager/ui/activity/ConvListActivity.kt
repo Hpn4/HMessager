@@ -8,6 +8,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,12 +25,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.DismissDirection
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismiss
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDismissState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -96,24 +103,26 @@ fun DrawConvListScreen(
     Surface(
         modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
     ) {
-        Scaffold(topBar = { ConvListTopBar(text = "HMessager", onSettingsClick) }, content = {
+        Scaffold(topBar = { ConvListTopBar(text = "HMessager", onSettingsClick) },
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = onNewConvClick, containerColor = MaterialTheme.colorScheme.primary
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.message_circle_lines),
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        contentDescription = "New conversation"
+                    )
+                }
+            }) {
             DrawConversations(
                 convs = convs, onClick = onOpenConvClick, modifier = Modifier.padding(it)
             )
-        }, floatingActionButton = {
-            FloatingActionButton(
-                onClick = onNewConvClick, containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.message_circle_lines),
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    contentDescription = "New conversation"
-                )
-            }
-        })
+        }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DrawConversations(
     convs: List<ConvMetadata>,
@@ -124,12 +133,50 @@ fun DrawConversations(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        verticalArrangement = Arrangement.spacedBy(5.dp),
         horizontalAlignment = Alignment.Start,
-        contentPadding = PaddingValues(5.dp),
+        contentPadding = PaddingValues(top = 5.dp, bottom = 5.dp),
     ) {
         items(convs) {
-            DrawConversation(it) { onClick(it.convId) }
+            val state = rememberDismissState(confirmValueChange = {
+                false
+            })
+            SwipeToDismiss(state = state, background = {
+                if (state.dismissDirection == DismissDirection.EndToStart) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Red)
+                            .padding(end = 10.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Delete conversation",
+                            tint = Color.White,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.primary)
+                            .padding(start = 10.dp),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = "Mark as read",
+                            tint = Color.White,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                }
+            }, dismissContent = {
+                DrawConversation(it) { onClick(it.convId) }
+            })
         }
     }
 }
@@ -139,12 +186,13 @@ fun DrawConversation(
     conv: ConvMetadata,
     onClick: () -> Unit,
 ) {
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {
-                onClick()
-            },
+            .background(MaterialTheme.colorScheme.background)
+            .clickable { onClick() }
+            .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(15.dp)
     ) {
@@ -174,7 +222,7 @@ fun DrawConversation(
         // A conversation can be empty and have no messages
         val time =
             if (conv.lastMessageDate == null) "???" else Utils.getDateString(conv.lastMessageDate.toInstant())
-        val lastMessage = if(conv.lastMessage == null) " " else conv.lastMessage
+        val lastMessage = if (conv.lastMessage == null) " " else conv.lastMessage
 
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -190,8 +238,7 @@ fun DrawConversation(
                 )
 
                 Text(
-                    text = time,
-                    color = MaterialTheme.colorScheme.onSecondary
+                    text = time, color = MaterialTheme.colorScheme.onSecondary
                 )
             }
 
