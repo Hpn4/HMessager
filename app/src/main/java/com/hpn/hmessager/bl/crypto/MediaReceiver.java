@@ -1,7 +1,7 @@
 package com.hpn.hmessager.bl.crypto;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import com.hpn.hmessager.bl.conversation.message.MediaAttachment;
+
 import java.security.GeneralSecurityException;
 
 public class MediaReceiver {
@@ -10,39 +10,41 @@ public class MediaReceiver {
 
     private byte[] firstFragment; // EG message
 
-    private ByteArrayOutputStream media;
+    private byte[] data; // Media data
 
-    private int fragId;
+    private int offset;
 
     private int fragTot;
 
     public MediaReceiver() {
-
     }
 
     public void initReceiving(byte[] key, byte[] firstFragment, int fragTot) {
         this.key = key;
-        fragId = 0;
         this.fragTot = fragTot;
         this.firstFragment = firstFragment;
+        offset = 0;
 
-        media = new ByteArrayOutputStream();
+        data = new byte[MediaAttachment.getSizeFromMeta(firstFragment)];
     }
 
     public void receiveFragment(byte[] fragment) {
         try {
-            media.write(KeyUtils.decrypt(key, fragment));
-        } catch(GeneralSecurityException | IOException e) {
+            byte[] decrypted = KeyUtils.decrypt(key, fragment);
+
+            System.arraycopy(decrypted, 0, data, offset, decrypted.length);
+            offset += decrypted.length;
+        } catch(GeneralSecurityException e) {
             e.printStackTrace();
         }
     }
 
-    public boolean isComplete() {
+    public boolean isComplete(int fragId) {
         return fragId == fragTot;
     }
 
     public byte[] getMedia() {
-        return media.toByteArray();
+        return data;
     }
 
     public byte[] getFirstFragment() {
@@ -52,8 +54,8 @@ public class MediaReceiver {
     public void clear() {
         key = null;
         firstFragment = null;
-        media = null;
-        fragId = 0;
+        data = null;
+        offset = 0;
         fragTot = 0;
     }
 }

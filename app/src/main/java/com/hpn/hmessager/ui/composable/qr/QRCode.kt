@@ -122,7 +122,7 @@ fun QRScanner(
         }
     )
 
-    LaunchedEffect(key1 = true) {
+    LaunchedEffect(Unit) {
         launcher.launch(Manifest.permission.CAMERA)
     }
 

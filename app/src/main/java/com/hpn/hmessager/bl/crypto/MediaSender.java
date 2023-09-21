@@ -1,18 +1,16 @@
 package com.hpn.hmessager.bl.crypto;
 
-import com.hpn.hmessager.bl.conversation.Message;
+import com.hpn.hmessager.bl.conversation.message.Message;
 
 public class MediaSender {
 
+    private final SendingRatchet sendingRatchet;
     private byte[] key;
+    private byte[] mediaData;
 
     private int fragId;
-
     private int fragTot;
-
     private Message message;
-
-    private final SendingRatchet sendingRatchet;
 
     public MediaSender(SendingRatchet sendingRatchet) {
         this.sendingRatchet = sendingRatchet;
@@ -21,20 +19,27 @@ public class MediaSender {
     public void initSending(Message message, byte[] key) {
         this.message = message;
         this.key = key;
-        fragId = 1;
+        fragId = 0;
         fragTot = (int) Math.ceil((double) message.getMediaAttachment().getSize() / Ratchet.MAX_MESSAGE_SIZE);
+
+        mediaData = message.getMediaAttachment().readContent();
     }
 
     public byte[] getFirstFragment() {
-        return sendingRatchet.constructMessage(message.constructByteArray(), 0, fragTot, key);
+        byte[] tmpData = message.getDataBytes();
+        byte[] firstFrag = sendingRatchet.constructMessage(message.constructByteArray(true), 0, fragTot, key);
+
+        message.setData(tmpData);
+
+        return firstFrag;
     }
 
     public byte[] getNextFragment() {
-        int offset = (fragId - 1) * Ratchet.MAX_MESSAGE_SIZE;
-        int size = Math.min(Ratchet.MAX_MESSAGE_SIZE, (int) message.getMediaAttachment().getSize() - offset);
+        int offset = fragId * Ratchet.MAX_MESSAGE_SIZE;
+        int size = Math.min(Ratchet.MAX_MESSAGE_SIZE, mediaData.length - offset);
 
         byte[] fragment = new byte[size];
-        System.arraycopy(message.getMediaAttachment().getData(), offset, fragment, 0, size);
+        System.arraycopy(mediaData, offset, fragment, 0, size);
 
         ++fragId;
         return sendingRatchet.constructMessage(fragment, fragId, fragTot, key);

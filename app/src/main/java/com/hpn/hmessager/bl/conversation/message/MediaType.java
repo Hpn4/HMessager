@@ -1,8 +1,16 @@
-package com.hpn.hmessager.bl.conversation;
+package com.hpn.hmessager.bl.conversation.message;
 
 public enum MediaType {
 
-    IMAGE("image/", (byte) 0x01), AUDIO("audio/", (byte) 0x02), VIDEO("video/", (byte) 0x04), DOCUMENT("", (byte) 0x08);
+    GIF("image/gif", (byte) 0x01),
+
+    IMAGE("image/", (byte) 0x02),
+
+    AUDIO("audio/", (byte) 0x03),
+
+    VIDEO("video/", (byte) 0x04),
+
+    DOCUMENT("", (byte) 0x05);
 
 
     final String mimeType;

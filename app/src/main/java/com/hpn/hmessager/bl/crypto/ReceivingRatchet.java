@@ -41,7 +41,8 @@ public class ReceivingRatchet extends Ratchet {
                 mediaReceiver.receiveFragment(ciphertext);
 
                 // If all fragments have been received, send the assembled media to the conversation
-                if (mediaReceiver.isComplete()) {
+                if (mediaReceiver.isComplete(fragId)) {
+                    System.out.println("[ ReceivingRatchet ] Media received in " + fragTot + " fragments");
                     conv.receiveMedia(mediaReceiver.getFirstFragment(), mediaReceiver.getMedia());
 
                     mediaReceiver.clear();

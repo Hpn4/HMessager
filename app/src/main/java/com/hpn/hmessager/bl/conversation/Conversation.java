@@ -5,6 +5,9 @@ import android.net.Uri;
 
 import androidx.compose.runtime.snapshots.SnapshotStateList;
 
+import com.hpn.hmessager.bl.conversation.message.MediaAttachment;
+import com.hpn.hmessager.bl.conversation.message.Message;
+import com.hpn.hmessager.bl.conversation.message.MessageType;
 import com.hpn.hmessager.bl.crypto.ReceivingRatchet;
 import com.hpn.hmessager.bl.crypto.SendingRatchet;
 import com.hpn.hmessager.bl.crypto.X25519KeyPair;
@@ -27,6 +30,8 @@ public class Conversation {
     private SnapshotStateList<Message> messages;
     private ConversationStorage storage;
     private X25519KeyPair dhKeys;
+
+    private Context context;
 
     private int convId;
 
@@ -60,12 +65,12 @@ public class Conversation {
     }
 
     public void receiveMedia(byte[] metadata, byte[] media) {
-        Message message = new Message(metadata, this);
+        Message message = new Message(metadata, this, storage.getLastId());
         message.getMetadata().setReceivedDate(new Date());
         message.getMetadata().setUser(remoteUser);
 
         if (media != null) {
-            MediaAttachment mediaAttachment = new MediaAttachment(media);
+            MediaAttachment mediaAttachment = new MediaAttachment(message.getDataBytes(), media, storage, context);
             message.setMediaAttachment(mediaAttachment);
         }
 
@@ -81,13 +86,13 @@ public class Conversation {
         receivingRatchet.receiveMessage(msg);
     }
 
-    public void sendMedias(List<Uri> medias, Context context) {
+    public void sendMedias(List<Uri> medias) {
         for (Uri media : medias)
-            sendMessage(new Message(new MediaAttachment(media, context)));
+            sendMessage(new Message(new MediaAttachment(media, context), storage.getLastId()));
     }
 
     public void sendText(String msg) {
-        sendMessage(new Message(msg));
+        sendMessage(new Message(msg, storage.getLastId()));
     }
 
     private void sendMessage(Message message) {
@@ -103,9 +108,9 @@ public class Conversation {
     }
 
     public boolean seePreviousMessages() {
-        Message message = storage.readMessage();
+        Message message = storage.readMessage(context);
         if (message != null) {
-            addToMessagesList(message, 0);
+            insertStartToMessagesList(message);
             return true;
         }
 
@@ -113,13 +118,9 @@ public class Conversation {
     }
 
     public void seePreviousMessages(int count) {
-        int loaded = 0;
         for (int i = 0; i < count; i++) {
-            Message message = storage.readMessage();
-            if (message != null) {
-                addToMessagesList(message, 0);
-                loaded++;
-            }
+            Message message = storage.readMessage(context);
+            if (message != null) insertStartToMessagesList(message);
         }
 
     }
@@ -131,11 +132,12 @@ public class Conversation {
         if (messages.size() > 200) messages.removeRange(0, 50);
     }
 
-    private void addToMessagesList(Message msg, int offset) {
+    private void insertStartToMessagesList(Message msg) {
+        int size = messages.size();
         // To avoid consume all the RAM
-        if (messages.size() > 200) messages.removeRange(0, 50);
+        if (size > 200) messages.removeRange(size - 50, size - 1);
 
-        messages.add(offset, msg);
+        messages.add(0, msg);
     }
 
     public ConvMetadata constructMetadata(int convId) {
@@ -145,7 +147,7 @@ public class Conversation {
 
         if (messages == null) return metadata;
 
-        Message last = messages.size() > 0 ? messages.get(messages.size() - 1) : null;
+        Message last = !messages.isEmpty() ? messages.get(messages.size() - 1) : null;
         if (last != null) {
             if (last.getType().isText()) metadata.setLastMessage(last.getData());
             else metadata.setLastMessage("Media");
@@ -158,6 +160,10 @@ public class Conversation {
 
     public void setConversationName(String name) {
         remoteUser.setName(name);
+    }
+
+    public ConversationStorage getConversationStorage() {
+        return storage;
     }
 
     public void setConversationStorage(ConversationStorage storage) {
@@ -216,10 +222,15 @@ public class Conversation {
         return destConvId;
     }
 
-    public void initConv(@NotNull SnapshotStateList<Message> msg) {
+    public void initConv(Context context, @NotNull SnapshotStateList<Message> msg) {
+        this.context = context;
         messages = msg;
         PaquetManager.connect(localUser);
 
         seePreviousMessages(10);
+    }
+
+    public Context getContext() {
+        return context;
     }
 }

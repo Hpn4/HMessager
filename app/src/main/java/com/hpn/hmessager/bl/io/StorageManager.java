@@ -67,6 +67,56 @@ public class StorageManager {
         rootKey = intent.getByteArrayExtra("pass");
     }
 
+    // Static utils
+    public static Date byteToDate(byte[] buff, int offset) {
+        return new Date(byteToLong(buff, offset));
+    }
+
+    public static byte[] dateToByte(Date d) {
+        if (d == null)
+            return new byte[8];
+
+        return longToByte(d.getTime());
+    }
+
+    public static int byteToInt(byte[] buff, int offset) {
+        return ByteBuffer.wrap(buff, offset, 4).getInt();
+    }
+
+    public static byte[] intToByte(int i) {
+        return ByteBuffer.allocate(4).putInt(i).array();
+    }
+
+    public static long byteToLong(byte[] buff, int offset) {
+        return ByteBuffer.wrap(buff, offset, 8).getLong();
+    }
+
+    public static byte[] longToByte(long l) {
+        return ByteBuffer.allocate(8).putLong(l).array();
+    }
+
+    public static Key readKey(HByteArrayInputStream bis, int code) throws IOException, GeneralSecurityException {
+        byte[] tmp = bis.readBytes(KEYS_SIZE[code]);
+
+        Key key = null;
+        switch (code) {
+            case 0:
+                key = getPrivKeyFromX25519(tmp);
+                break;
+            case 1:
+                key = getPubKeyFromX25519(tmp, true);
+                break;
+            case 2:
+                key = getPrivKeyFromEd25519(tmp);
+                break;
+            case 3:
+                key = getPubKeyFromEd25519(tmp, true);
+                break;
+        }
+
+        return key;
+    }
+
     public void saveRootKeyIntent(Intent intent) {
         intent.putExtra("pass", rootKey);
     }
@@ -184,12 +234,33 @@ public class StorageManager {
         return new File(getConversationFile(convId), CONV_META_NAME);
     }
 
-    protected File getConversationMedia(int convId, int mediaId) {
-        File f = new File(getConversationFile(convId), "medias");
+    protected File getConversationMedia(int convId, String subDir) {
+        File f = new File(getConversationFile(convId), "medias" + System.getProperty("file.separator") + subDir);
 
         if (!f.exists()) f.mkdirs();
 
-        return new File(f, String.valueOf(mediaId));
+        return f;
+    }
+
+    public boolean deleteConversation(int convId) {
+        File convDir = getConversationFile(convId);
+
+        if (!convDir.exists()) return false;
+
+        return deleteDir(convDir);
+    }
+
+    private boolean deleteDir(File file) {
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children == null) return false;
+
+            for (File child : children)
+                if (!deleteDir(child))
+                    return false;
+        }
+
+        return file.delete();
     }
 
     public void storeConversation(Conversation c) {
@@ -314,6 +385,7 @@ public class StorageManager {
 
         try (HByteArrayInputStream bis = new HByteArrayInputStream(plain)) {
             metadata.setName(bis.readString());
+            metadata.setUnreadCount(bis.readInt());
 
             if (bis.available() > 0) {
                 metadata.setLastMessage(bis.readString());
@@ -326,13 +398,17 @@ public class StorageManager {
         return metadata;
     }
 
-    private void storeMetadata(int convId, ConvMetadata metadata) {
+    public void storeMetadata(int convId, ConvMetadata metadata) {
         File file = getConversationMetaFile(convId);
 
         try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            // Conversation name
             byte[] tmp = metadata.getName().getBytes(StandardCharsets.UTF_8);
             bos.write(intToByte(tmp.length));
             bos.write(tmp);
+
+            // Number of unread messages
+            bos.write(intToByte(metadata.getUnreadCount()));
 
             if (metadata.getLastMessage() != null) {
                 tmp = metadata.getLastMessage().getBytes(StandardCharsets.UTF_8);
@@ -415,55 +491,5 @@ public class StorageManager {
         }
 
         return tmp;
-    }
-
-    // Static utils
-    public static Date byteToDate(byte[] buff, int offset) {
-        return new Date(byteToLong(buff, offset));
-    }
-
-    public static byte[] dateToByte(Date d) {
-        if (d == null)
-            return new byte[8];
-
-        return longToByte(d.getTime());
-    }
-
-    public static int byteToInt(byte[] buff, int offset) {
-        return ByteBuffer.wrap(buff, offset, 4).getInt();
-    }
-
-    public static byte[] intToByte(int i) {
-        return ByteBuffer.allocate(4).putInt(i).array();
-    }
-
-    public static long byteToLong(byte[] buff, int offset) {
-        return ByteBuffer.wrap(buff, offset, 8).getLong();
-    }
-
-    public static byte[] longToByte(long l) {
-        return ByteBuffer.allocate(8).putLong(l).array();
-    }
-
-    public static Key readKey(HByteArrayInputStream bis, int code) throws IOException, GeneralSecurityException {
-        byte[] tmp = bis.readBytes(KEYS_SIZE[code]);
-
-        Key key = null;
-        switch (code) {
-            case 0:
-                key = getPrivKeyFromX25519(tmp);
-                break;
-            case 1:
-                key = getPubKeyFromX25519(tmp, true);
-                break;
-            case 2:
-                key = getPrivKeyFromEd25519(tmp);
-                break;
-            case 3:
-                key = getPubKeyFromEd25519(tmp, true);
-                break;
-        }
-
-        return key;
     }
 }

@@ -1,9 +1,10 @@
-package com.hpn.hmessager.bl.conversation;
+package com.hpn.hmessager.bl.conversation.message;
 
-import static com.hpn.hmessager.bl.conversation.MessageMetadata.*;
+import static com.hpn.hmessager.bl.conversation.message.MessageMetadata.*;
 import static com.hpn.hmessager.bl.io.StorageManager.byteToDate;
 import static com.hpn.hmessager.bl.io.StorageManager.dateToByte;
 
+import com.hpn.hmessager.bl.conversation.Conversation;
 import com.hpn.hmessager.bl.user.LocalUser;
 
 import java.nio.charset.Charset;
@@ -14,8 +15,6 @@ public class Message {
 
     private final Charset charset = StandardCharsets.UTF_8;
 
-    // First metadata byte
-
     private static final int MSG_HEADER_LENGTH = 2 + 8 * 3;
 
     // Message metadata
@@ -24,20 +23,24 @@ public class Message {
     // Message data
     private byte[] data;
 
+    private final int id;
+
     private MediaAttachment mediaAttachment;
 
     private String tmpString;
 
     private MessageType type;
 
-    public Message(MediaAttachment media) {
+    public Message(MediaAttachment media, int id) {
         m = new MessageMetadata();
+        this.id = id;
         mediaAttachment = media;
         type = MessageType.MEDIA;
     }
 
-    public Message(String data) {
+    public Message(String data, int id) {
         m = new MessageMetadata();
+        this.id = id;
         this.data = encodeToBytes(data);
 
         if (isOnlyEmoji(data))
@@ -46,8 +49,9 @@ public class Message {
             type = MessageType.TEXT;
     }
 
-    public Message(byte[] deciphered, Conversation c) {
+    public Message(byte[] deciphered, Conversation c, int id) {
         parseMessage(deciphered, c);
+        this.id = id;
     }
 
     Pattern pattern = Pattern.compile("\\w+|\\s+|\\p{P}+");
@@ -79,9 +83,21 @@ public class Message {
         System.arraycopy(deciphered, MSG_HEADER_LENGTH, data, 0, deciphered.length - MSG_HEADER_LENGTH);
 
         type = MessageType.fromCode(t);
+
+        // Setup media attachment
+        if(type == MessageType.MEDIA)
+            mediaAttachment = new MediaAttachment(data, c.getContext());
     }
 
-    public byte[] constructByteArray() {
+    /**
+     *
+     * @param forNetwork true if the message is for the network, false if it is for the storage
+     * @return the message as a byte array plus the metadata
+     */
+    public byte[] constructByteArray(boolean forNetwork) {
+        if(type == MessageType.MEDIA)
+            data = mediaAttachment.constructMetadata(forNetwork);
+
         byte[] msg = new byte[data.length + MSG_HEADER_LENGTH];
 
         // First byte
@@ -131,6 +147,10 @@ public class Message {
 
     public MessageType getType() {
         return type;
+    }
+
+    public int getId() {
+        return id;
     }
 
     public MediaAttachment getMediaAttachment() {

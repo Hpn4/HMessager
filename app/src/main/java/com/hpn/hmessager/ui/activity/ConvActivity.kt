@@ -47,7 +47,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -70,20 +72,24 @@ import androidx.core.view.WindowCompat
 import com.hpn.hmessager.R
 import com.hpn.hmessager.bl.conversation.Conversation
 import com.hpn.hmessager.bl.conversation.Conversations
-import com.hpn.hmessager.bl.conversation.Message
+import com.hpn.hmessager.bl.conversation.message.MediaType
+import com.hpn.hmessager.bl.conversation.message.Message
 import com.hpn.hmessager.bl.io.ConversationStorage
 import com.hpn.hmessager.bl.io.PaquetManager
 import com.hpn.hmessager.bl.io.StorageManager
+import com.hpn.hmessager.bl.utils.MediaHelper
 import com.hpn.hmessager.ui.composable.ConvTopBar
 import com.hpn.hmessager.ui.composable.DrawMsg
 import com.hpn.hmessager.ui.composable.MessageTextField
+import com.hpn.hmessager.ui.composable.releasePlayer
 import com.hpn.hmessager.ui.theme.HMessagerTheme
-import java.io.DataInputStream
 import java.io.File
-import java.io.IOException
 
 
 class ConvActivity : ComponentActivity() {
+
+    private var conv: Conversation? = null
+
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,8 +101,11 @@ class ConvActivity : ComponentActivity() {
         val storage = StorageManager(this, intent)
         val user = storage.loadLocalUser()
         val convId = intent.getIntExtra("convId", 0)
+
         val conv = Conversations.getOrLoadConversation(convId, storage, user)
-        conv.setConversationStorage(ConversationStorage(conv, storage))
+        conv.conversationStorage = ConversationStorage(conv, storage)
+
+        this.conv = conv
 
         setContent {
             val msg = remember { mutableStateListOf<Message>() }
@@ -111,6 +120,15 @@ class ConvActivity : ComponentActivity() {
                 storage.saveRootKeyIntent(int)
 
                 startActivity(int)
+            }
+
+            DisposableEffect(Unit) {
+                onDispose {
+                    releasePlayer()
+                    MediaHelper.release()
+                    PaquetManager.close()
+                    storage.storeConversation(conv)
+                }
             }
         }
     }
@@ -131,55 +149,60 @@ class ConvActivity : ComponentActivity() {
             Surface(
                 modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
             ) {
-                var scrollToBottom by remember { mutableStateOf(false) }
+                Box {
+                    var scrollToBottom by remember { mutableStateOf(false) }
+                    Scaffold(topBar = { ConvTopBar("conv.remoteUser.name", onBackButton) },
+                        content = {
+                            val lazyList = rememberLazyListState()
 
-                Scaffold(topBar = { ConvTopBar("conv.remoteUser.name", onBackButton) }, content = {
-                    val lazyList = rememberLazyListState()
-
-                    LazyColumn(
-                        modifier = Modifier
-                            .padding(
-                                top = it.calculateTopPadding(),
-                                bottom = it.calculateBottomPadding() - 42.dp
-                            )
-                            .fillMaxSize(),
-                        state = lazyList,
-                        contentPadding = PaddingValues(10.dp, 20.dp, 10.dp, 10.dp),
-                        verticalArrangement = Arrangement.spacedBy(1.dp)
-                    ) {
-                        items(msg) { message ->
-                            DrawMsg(message)
-                        }
-                    }
-
-                    LaunchedEffect(Unit) {
-                        conv.initConv(msg)
-                        scrollToBottom = true
-                    }
-
-                    LaunchedEffect(lazyList.firstVisibleItemIndex) {
-                        if (lazyList.firstVisibleItemIndex <= 3) {
-                            for (i in 0..20) {
-                                if (conv.seePreviousMessages()) lazyList.scrollToItem(lazyList.firstVisibleItemIndex + 1)
-                                else break
+                            LazyColumn(
+                                modifier = Modifier
+                                    .padding(
+                                        top = it.calculateTopPadding(),
+                                        bottom = it.calculateBottomPadding() - 42.dp
+                                    )
+                                    .fillMaxSize(),
+                                state = lazyList,
+                                contentPadding = PaddingValues(10.dp, 20.dp, 10.dp, 10.dp),
+                                verticalArrangement = Arrangement.spacedBy(1.dp)
+                            ) {
+                                items(msg) { message ->
+                                    DrawMsg(message)
+                                }
                             }
-                        }
-                    }
 
-                    LaunchedEffect(scrollToBottom) {
-                        if (scrollToBottom) {
-                            if (msg.isNotEmpty()) lazyList.scrollToItem(msg.size - 1)
-                            scrollToBottom = false
-                        }
-                    }
+                            LaunchedEffect(Unit) {
+                                conv.initConv(context, msg)
+                                scrollToBottom = true
+                            }
 
-                }, bottomBar = {
-                    BottomBar { text, uris ->
-                        if (uris.isEmpty()) conv.sendText(text)
-                        else conv.sendMedias(uris, context)
-                        scrollToBottom = true
-                    }
-                })
+                            LaunchedEffect(remember { derivedStateOf { lazyList.firstVisibleItemIndex <= 3 } }) {
+                                if (lazyList.firstVisibleItemIndex <= 3) {
+                                    for (i in 0..20) {
+                                        if (conv.seePreviousMessages()) lazyList.scrollToItem(
+                                            lazyList.firstVisibleItemIndex + 1
+                                        )
+                                        else break
+                                    }
+                                }
+                            }
+
+                            LaunchedEffect(scrollToBottom) {
+                                if (scrollToBottom) {
+                                    if (msg.isNotEmpty()) lazyList.scrollToItem(msg.size - 1)
+                                    scrollToBottom = false
+                                }
+                            }
+
+                        },
+                        bottomBar = {
+                            BottomBar { text, uris ->
+                                if (uris.isEmpty()) conv.sendText(text)
+                                else conv.sendMedias(uris)
+                                scrollToBottom = true
+                            }
+                        })
+                }
             }
         }
     }
@@ -198,19 +221,14 @@ class ConvActivity : ComponentActivity() {
             attach = false
         }
 
-        val takePicture =
-            rememberLauncherForActivityResult(contract = ActivityResultContracts.TakePicture(),
-                onResult = { uri ->
-                    if (uri && tmpUriPicture != null) onChosen(listOf(tmpUriPicture as Uri))
-                })
+        val takePicture = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.TakePicture(),
+            onResult = { uri ->
+                if (uri && tmpUriPicture != null) onChosen(listOf(tmpUriPicture as Uri))
+            })
 
         val onTakePicture: () -> Unit = {
-            val file = File(context.cacheDir, "tmp_picture.jpg")
-            file.createNewFile()
-
-            tmpUriPicture = FileProvider.getUriForFile(
-                context, "com.hpn.hmessager.ui.activity.ConvActivity.provider", file
-            )
+            tmpUriPicture = getUri(context, MediaType.IMAGE)
 
             takePicture.launch(tmpUriPicture)
         }
@@ -329,60 +347,36 @@ class ConvActivity : ComponentActivity() {
         }
     }
 
-    private fun readMedias(
-        context: Context, uris: List<Uri>,
-    ): List<ByteArray> {
-        val datas = mutableListOf<ByteArray>()
-        for (media in uris) {
-            val data: ByteArray
-
-            // Read
-            try {
-                val inputStream = context.contentResolver.openInputStream(media)
-                val bis = DataInputStream(inputStream)
-                data = bis.readBytes()
-
-                datas.add(data)
-            } catch (e: IOException) {
-                e.printStackTrace()
-            }
-        }
-
-        return datas
-    }
-
     @Composable
-    fun AttachmentMenu(
+    private fun AttachmentMenu(
         modifier: Modifier,
         onKeyboard: Boolean = true,
         onChosen: (List<Uri>) -> Unit,
         onTakePicture: () -> Unit,
     ) {
         var tmpUriVideo by remember { mutableStateOf<Uri?>(null) }
-
         val context = LocalContext.current
 
-        val multipleMediasPicker =
-            rememberLauncherForActivityResult(contract = ActivityResultContracts.PickMultipleVisualMedia(),
-                onResult = { uris ->
-                    for(uri in uris) {
-                        println("Uri: $uri")
-                    }
-                    onChosen(uris)
-                })
-        val multipleDocsPicker =
-            rememberLauncherForActivityResult(contract = ActivityResultContracts.GetMultipleContents(),
-                onResult = { uris ->
-                    onChosen(uris)
-                })
+        val multipleMediasPicker = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.PickMultipleVisualMedia(),
+            onResult = { uris ->
+                persistentUri(context, uris)
+                onChosen(uris)
+            })
+        val multipleDocsPicker = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenMultipleDocuments(),
+            onResult = { uris ->
+                persistentUri(context, uris)
+                onChosen(uris)
+            })
 
-        val takeVideo =
-            rememberLauncherForActivityResult(contract = ActivityResultContracts.CaptureVideo(),
-                onResult = { uri ->
-                    if (uri && tmpUriVideo != null) onChosen(
-                        listOf(tmpUriVideo as Uri)
-                    )
-                })
+        val takeVideo = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CaptureVideo(),
+            onResult = { uri ->
+                if (uri && tmpUriVideo != null) onChosen(
+                    listOf(tmpUriVideo as Uri)
+                )
+            })
 
 
         LazyVerticalGrid(
@@ -411,7 +405,7 @@ class ConvActivity : ComponentActivity() {
 
             item {
                 AttachmentItem(name = "Audio", id = R.drawable.audio_24dp, color = Color.Red) {
-                    multipleDocsPicker.launch("audio/*")
+                    multipleDocsPicker.launch(arrayOf("audio/*"))
                 }
             }
 
@@ -419,7 +413,7 @@ class ConvActivity : ComponentActivity() {
                 AttachmentItem(
                     name = "Document", id = R.drawable.document_24dp, color = Color.Blue
                 ) {
-                    multipleDocsPicker.launch("*/*")
+                    multipleDocsPicker.launch(arrayOf("*/*"))
                 }
             }
 
@@ -438,12 +432,7 @@ class ConvActivity : ComponentActivity() {
                     id = R.drawable.videocam_black_24dp,
                     color = Color.LightGray
                 ) {
-                    val file = File(context.cacheDir, "tmp_video.mp4")
-                    file.createNewFile()
-
-                    tmpUriVideo = FileProvider.getUriForFile(
-                        context, "com.hpn.hmessager.ui.activity.ConvActivity.provider", file
-                    )
+                    tmpUriVideo = getUri(context, MediaType.VIDEO)
 
                     takeVideo.launch(tmpUriVideo)
                 }
@@ -452,7 +441,7 @@ class ConvActivity : ComponentActivity() {
     }
 
     @Composable
-    fun AttachmentItem(name: String, id: Int, color: Color, onClick: () -> Unit = {}) {
+    private fun AttachmentItem(name: String, id: Int, color: Color, onClick: () -> Unit = {}) {
         Column(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
@@ -461,6 +450,7 @@ class ConvActivity : ComponentActivity() {
                 Color(color.red * 0.85f, color.green * 0.85f, color.blue * 0.85f, color.alpha)
             val darker =
                 Color(color.red * 0.75f, color.green * 0.75f, color.blue * 0.75f, color.alpha)
+
             IconButton(
                 onClick = onClick, modifier = Modifier
                     .clip(CircleShape)
@@ -483,4 +473,23 @@ class ConvActivity : ComponentActivity() {
         }
     }
 
+    private fun persistentUri(context: Context, uris: List<Uri>) {
+        for (uri in uris) {
+            val flag = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            context.contentResolver.takePersistableUriPermission(uri, flag)
+        }
+    }
+
+    private fun getUri(context: Context, mediaType: MediaType, name: String? = null): Uri {
+        val storage = conv?.conversationStorage as ConversationStorage
+        val file =
+            if (name.isNullOrEmpty()) storage.getMediaFile(mediaType) else storage.getMediaFile(
+                name, mediaType
+            ) as File
+        file.createNewFile()
+
+        return FileProvider.getUriForFile(
+            context, "com.hpn.hmessager.ui.activity.ConvActivity.provider", file
+        )
+    }
 }

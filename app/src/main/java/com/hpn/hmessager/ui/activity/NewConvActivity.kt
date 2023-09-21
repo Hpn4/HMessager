@@ -7,9 +7,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -52,53 +52,41 @@ class NewConvActivity : ComponentActivity() {
             HMessagerTheme {
                 // A surface container using the 'background' color from the theme
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
                 ) {
-                    Scaffold(
-                        topBar = { TopBar(text = "New conversation") },
-                        content = {
-                            var isScanned by remember { mutableStateOf(false) }
-                            var isScanMode by remember { mutableStateOf(false) }
-                            var qrCodeLocal by remember { mutableStateOf(auth.generateQrCode(true)) }
-                            var qrCodeRemote by remember { mutableStateOf("") }
+                    Scaffold(topBar = { TopBar(text = "New conversation") }, content = {
+                        var isScanned by remember { mutableStateOf(false) }
+                        var isScanMode by remember { mutableStateOf(false) }
+                        var qrCodeLocal by remember { mutableStateOf(auth.generateQrCode(true)) }
+                        var qrCodeRemote by remember { mutableStateOf("") }
 
-                            Box(
-                                modifier = Modifier
-                                    .padding(it)
-                                    .fillMaxSize()
-                                    .background(MaterialTheme.colorScheme.background)
+                        Box(
+                            modifier = Modifier
+                                .padding(it)
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.background)
+                        ) {
+
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(40.dp)
                             ) {
-
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalAlignment = Alignment.CenterHorizontally
+                                Box(
+                                    modifier = Modifier
+                                        .padding(16.dp)
+                                        .width(400.dp)
+                                        .height(400.dp)
+                                        .clip(RoundedCornerShape(5))
                                 ) {
+
                                     if (isScanMode) {
-                                        QRScanner(
-                                            onQrCodeScanned = { code ->
-                                                if (!isScanned) {
-                                                    qrCodeRemote = code
-                                                    isScanned = true
-                                                }
-                                            },
-                                            modifier = Modifier
-                                                .padding(16.dp)
-                                                .width(400.dp)
-                                                .height(400.dp)
-                                                .clip(RoundedCornerShape(5))
-                                        )
-
-                                        Spacer(modifier = Modifier.padding(40.dp))
-
-                                        HButton(
-                                            onClick = {
-                                                isScanMode = false
-                                                qrCodeLocal = auth.generateQrCode(!isScanned)
-                                            },
-                                            text = "Code",
-                                            modifier = Modifier.padding(horizontal = 20.dp)
-                                        )
+                                        QRScanner(onQrCodeScanned = { code ->
+                                            if (!isScanned) {
+                                                qrCodeRemote = code
+                                                isScanned = true
+                                            }
+                                        })
                                     } else {
                                         Barcode(
                                             type = BarcodeType.QR_CODE,
@@ -106,55 +94,49 @@ class NewConvActivity : ComponentActivity() {
                                             width = 400.dp,
                                             height = 400.dp,
                                             modifier = Modifier
-                                                .padding(16.dp)
-                                                .clip(RoundedCornerShape(5))
                                                 .background(MaterialTheme.colorScheme.onPrimary)
-                                                .width(400.dp)
-                                                .height(400.dp)
-                                        )
-
-
-                                        Spacer(modifier = Modifier.padding(40.dp))
-
-                                        HButton(
-                                            onClick = {
-                                                isScanMode = true
-                                            },
-                                            text = "Scan",
-                                            modifier = Modifier.padding(horizontal = 20.dp)
-                                        )
-                                    }
-
-                                    if (isScanned) {
-                                        Text(
-                                            text = "Code correctly scanned",
-                                            color = MaterialTheme.colorScheme.tertiary
+                                                .fillMaxSize()
                                         )
                                     }
                                 }
 
                                 HButton(
                                     onClick = {
-                                        val conv = auth.generateConversation(
-                                            qrCodeRemote,
-                                            storage
-                                        )
-
-                                        val intent = Intent(act, ConvActivity::class.java)
-                                        storage.saveRootKeyIntent(intent)
-                                        intent.putExtra("convId", conv.convId)
-
-                                        startActivity(intent)
+                                        isScanMode = !isScanMode
+                                        if (isScanMode) qrCodeLocal =
+                                            auth.generateQrCode(!isScanned)
                                     },
-                                    text = "Continue",
-                                    enabled = isScanned,
-                                    modifier = Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .padding(16.dp)
+                                    text = if (isScanMode) "Code" else "Scan"
                                 )
+
+                                if (isScanned) {
+                                    Text(
+                                        text = "Code correctly scanned",
+                                        color = MaterialTheme.colorScheme.tertiary
+                                    )
+                                }
                             }
+
+                            HButton(
+                                onClick = {
+                                    val conv = auth.generateConversation(
+                                        qrCodeRemote, storage
+                                    )
+
+                                    val intent = Intent(act, ConvActivity::class.java)
+                                    storage.saveRootKeyIntent(intent)
+                                    intent.putExtra("convId", conv.convId)
+
+                                    startActivity(intent)
+                                },
+                                text = "Continue",
+                                enabled = isScanned,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(end = 16.dp, bottom = 10.dp)
+                            )
                         }
-                    )
+                    })
                 }
             }
         }

@@ -4,6 +4,7 @@ import java.util.Date;
 
 public class ConvMetadata {
 
+    //TODO add an integer with the number of unread messages
     private String name;
 
     private String avatarUrl;

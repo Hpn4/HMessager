@@ -1,4 +1,4 @@
-package com.hpn.hmessager.bl.conversation;
+package com.hpn.hmessager.bl.conversation.message;
 
 public enum MessageType {
 

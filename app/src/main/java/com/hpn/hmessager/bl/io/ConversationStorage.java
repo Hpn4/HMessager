@@ -1,9 +1,12 @@
 package com.hpn.hmessager.bl.io;
 
+import android.content.Context;
+
 import com.hpn.hmessager.bl.conversation.Conversation;
-import com.hpn.hmessager.bl.conversation.MediaAttachment;
-import com.hpn.hmessager.bl.conversation.Message;
-import com.hpn.hmessager.bl.conversation.MessageType;
+import com.hpn.hmessager.bl.conversation.message.MediaAttachment;
+import com.hpn.hmessager.bl.conversation.message.MediaType;
+import com.hpn.hmessager.bl.conversation.message.Message;
+import com.hpn.hmessager.bl.conversation.message.MessageType;
 import com.hpn.hmessager.bl.crypto.KeyUtils;
 
 import java.io.File;
@@ -16,11 +19,9 @@ public class ConversationStorage {
 
     private static final byte[] INFO = "msg chain key".getBytes(StandardCharsets.UTF_8);
 
-    private static final byte[] MEDIA_INFO = "media chain key".getBytes(StandardCharsets.UTF_8);
-
     private final Conversation conv;
 
-    private StorageManager sm;
+    private final StorageManager sm;
 
     private final byte[] rootKey;
 
@@ -31,6 +32,10 @@ public class ConversationStorage {
     private int messageCount;
 
     private int mediaCount;
+
+    private int documentCount;
+
+    private int audioCount;
 
 
     // Called only from StorageManager
@@ -75,7 +80,58 @@ public class ConversationStorage {
         }
     }
 
-    public Message readMessage() {
+    public int getLastId() {
+        return messageCount;
+    }
+
+    public File getMediaFile(String name, MediaType type) {
+        String typeStr = type == MediaType.AUDIO ? "audio" : type == MediaType.DOCUMENT ? "document" : "media";
+        File parent = sm.getConversationMedia(conv.getConvId(), typeStr);
+
+        File file = new File(parent, name);
+        if (!file.exists()) return file;
+
+        String nameWithoutExt = name.substring(0, name.lastIndexOf('.'));
+        String ext = name.substring(name.lastIndexOf('.'));
+
+        do {
+            if (type == MediaType.AUDIO) {
+                name = nameWithoutExt + "_" + audioCount + ext;
+                ++audioCount;
+            } else if (type == MediaType.DOCUMENT) {
+                name = nameWithoutExt + "_" + documentCount + ext;
+                ++documentCount;
+            } else {
+                name = nameWithoutExt + "_" + mediaCount + ext;
+                ++mediaCount;
+            }
+            file = new File(parent, name);
+        } while (file.exists());
+
+        return file;
+    }
+
+    public File getMediaFile(MediaType type) {
+        String typeStr, name;
+
+        if (type == MediaType.AUDIO) {
+            name = "audio_" + audioCount;
+            ++audioCount;
+            typeStr = "audio";
+        } else if (type == MediaType.DOCUMENT) {
+            name = "document_" + documentCount;
+            ++documentCount;
+            typeStr = "document";
+        } else {
+            name = "media_" + mediaCount + ".jpg";
+            ++mediaCount;
+            typeStr = "media";
+        }
+
+        return new File(sm.getConversationMedia(conv.getConvId(), typeStr), name);
+    }
+
+    public Message readMessage(Context context) {
         if (open() || messageIndex <= 0) return null;
 
         byte[] msg;
@@ -112,16 +168,11 @@ public class ConversationStorage {
             return null;
         }
 
-        Message m = new Message(plain, conv);
+        Message m = new Message(plain, conv, messageIndex + 1);
 
         // If the message is a media, we read the media related to it (the message contains an id of the media)
-        // and decrypt it
         if (m.getType() == MessageType.MEDIA) {
-            byte[] mediaId = m.getDataBytes();
-            byte[] mediaKey = KeyUtils.HKDF(mediaId, rootKey, MEDIA_INFO, 32);
-
-            File file = sm.getConversationMedia(conv.getConvId(), StorageManager.byteToInt(mediaId, 0));
-            MediaAttachment media = new MediaAttachment(sm.readAndDecrypt(file, mediaKey));
+            MediaAttachment media = new MediaAttachment(m.getDataBytes(), context);
 
             m.setMediaAttachment(media);
         }
@@ -132,27 +183,12 @@ public class ConversationStorage {
     public void storeMessage(Message msg) {
         if (open()) return;
 
-        // If the message contain a media, we store it in a separate file
-        // and we store the id of the media in the message
-        if (msg.getType() == MessageType.MEDIA) {
-            // Create the media file
-            File file = sm.getConversationMedia(conv.getConvId(), mediaCount);
-            byte[] key = KeyUtils.HKDF(StorageManager.intToByte(mediaCount), rootKey, MEDIA_INFO, 32);
-            byte[] mediaData = msg.getMediaAttachment().constructForStorage();
-
-            sm.encryptAndSave(mediaData, file, key);
-
-            msg.setData(StorageManager.intToByte(mediaCount));
-
-            ++mediaCount;
-        }
-
         byte[] ciphertext;
         try {
             byte[] id = StorageManager.intToByte(messageCount);
             byte[] key = KeyUtils.HKDF(id, rootKey, INFO, 32);
 
-            ciphertext = KeyUtils.encrypt(key, msg.constructByteArray());
+            ciphertext = KeyUtils.encrypt(key, msg.constructByteArray(false));
         } catch (GeneralSecurityException e) {
             System.err.println("Error while encrypting message");
             return;
@@ -195,10 +231,14 @@ public class ConversationStorage {
             if (msgFile.length() > 0) {
                 messageCount = messageIndex = readInt();
                 mediaCount = readInt();
+                documentCount = readInt();
+                audioCount = readInt();
             } else {
-                messageCount = messageIndex = mediaCount = 0;
+                messageCount = messageIndex = mediaCount = documentCount = audioCount = 0;
                 writeInt(messageCount);
                 writeInt(mediaCount);
+                writeInt(documentCount);
+                writeInt(audioCount);
             }
 
             msgFile.seek(msgFile.length());
@@ -211,13 +251,15 @@ public class ConversationStorage {
         return false;
     }
 
-    private void storeCounter() throws IOException{
+    private void storeCounter() throws IOException {
         long pointer = msgFile.getFilePointer();
 
         msgFile.seek(0);
 
         writeInt(messageCount);
         writeInt(mediaCount);
+        writeInt(documentCount);
+        writeInt(audioCount);
 
         msgFile.seek(pointer);
     }

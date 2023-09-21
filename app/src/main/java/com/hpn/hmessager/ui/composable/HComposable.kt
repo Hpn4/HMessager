@@ -13,18 +13,23 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 
 @Composable
 fun HButton(
-    onClick: () -> Unit,
     text: String,
+    modifier: Modifier = Modifier,
+    containerColor : Color = MaterialTheme.colorScheme.primary,
+    fontWeight: FontWeight? = null,
+    fontSize: TextUnit = 16.sp,
     enabled: Boolean = true,
-    modifier: Modifier = Modifier
+    onClick: () -> Unit
 ) {
     Button(
         onClick = onClick,
@@ -32,7 +37,7 @@ fun HButton(
         modifier = modifier,
         shape = RoundedCornerShape(50),
         colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
+            containerColor = containerColor,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             disabledContainerColor = MaterialTheme.colorScheme.secondary,
             disabledContentColor = MaterialTheme.colorScheme.onSecondary
@@ -40,7 +45,8 @@ fun HButton(
     ) {
         Text(text = text,
             modifier = Modifier.padding(horizontal = 15.dp),
-            fontSize = 16.sp)
+            fontWeight = fontWeight,
+            fontSize = fontSize)
     }
 }
 

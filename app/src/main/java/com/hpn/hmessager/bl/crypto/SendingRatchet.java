@@ -1,7 +1,7 @@
 package com.hpn.hmessager.bl.crypto;
 
 import com.hpn.hmessager.bl.conversation.Conversation;
-import com.hpn.hmessager.bl.conversation.Message;
+import com.hpn.hmessager.bl.conversation.message.Message;
 import com.hpn.hmessager.bl.io.StorageManager;
 
 import java.security.GeneralSecurityException;
@@ -38,7 +38,7 @@ public class SendingRatchet extends Ratchet {
             KeyUtils.ChainMessageK chainMessageK = KeyUtils.deriveCKandMK(chainKey);
             chainKey = chainMessageK.getChainKey();
 
-            return constructMessage(message.constructByteArray(), 0, 0, chainMessageK.getMessageKey());
+            return constructMessage(message.constructByteArray(true), 0, 0, chainMessageK.getMessageKey());
         } catch (GeneralSecurityException e) {
             e.printStackTrace();
         }

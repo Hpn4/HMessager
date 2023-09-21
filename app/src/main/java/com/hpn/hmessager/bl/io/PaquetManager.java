@@ -43,6 +43,7 @@ public class PaquetManager {
         for (int i = 0; i < sender.getFragCount(); i++)
             w.send(ByteString.of(sender.getNextFragment()));
 
+        System.out.println("[ PaquetManager ] Media sent in " + sender.getFragCount() + " fragments");
         sender.clear();
     }
 
@@ -80,7 +81,6 @@ public class PaquetManager {
         @Override
         public void onMessage(@NotNull WebSocket webSocket, @NotNull String text) {
             super.onMessage(webSocket, text);
-            System.out.println("onMessage: " + text);
         }
 
         @Override
