@@ -285,7 +285,9 @@ private fun DrawAudioMsg(message: Message) {
                         exPlayer.seekTo((it * exPlayer.duration).toLong())
                     }
                 },
-                modifier = Modifier.fillMaxWidth(0.7f).padding(7.dp),
+                modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .padding(7.dp),
                 waveformAlignment = Alignment.CenterVertically,
                 spikePadding = 2.dp,
                 progress = progress,
@@ -576,8 +578,7 @@ private fun MediaScaffold(
         containerColor = Color.Black,
         topBar = {
             AnimatedVisibility(visible, enter = fadeIn(), exit = fadeOut()) {
-                TopAppBar(
-                    title = { Text(text = title) },
+                TopAppBar(title = { Text(text = title) },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Black.copy(
                             alpha = 0.5f
@@ -608,9 +609,7 @@ private fun MediaScaffold(
                                 )
                             }
                         }
-                    },
-
-                    )
+                    })
             }
         },
         content = content

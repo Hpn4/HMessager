@@ -23,10 +23,6 @@ public enum MediaType {
         code = b;
     }
 
-    public byte getCode() {
-        return code;
-    }
-
     public boolean isVisual() {
         return this == IMAGE || this == VIDEO;
     }

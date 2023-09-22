@@ -1,10 +1,7 @@
 package com.hpn.hmessager.ui.composable.qr
 
 import android.Manifest
-import android.content.pm.PackageManager
 import android.util.Log
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
@@ -30,6 +27,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.hpn.hmessager.ui.utils.RequestPermission
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -57,7 +55,7 @@ fun Barcode(
     width: Dp = 128.dp,
     height: Dp = 128.dp,
     type: BarcodeType,
-    value: String
+    value: String,
 ) {
     val barcodeBitmap = remember { mutableStateOf<ImageBitmap?>(null) }
     val scope = rememberCoroutineScope()
@@ -84,15 +82,12 @@ fun Barcode(
     // Contain the barcode in a box that matches the provided dimensions
     barcodeBitmap.value?.let { barcode ->
         Image(
-            modifier = modifier,
-            painter = BitmapPainter(barcode),
-            contentDescription = value
+            modifier = modifier, painter = BitmapPainter(barcode), contentDescription = value
         )
     } ?: run {
         if (showProgress) {
             CircularProgressIndicator(
-                modifier = Modifier
-                    .fillMaxSize(0.5f)
+                modifier = Modifier.fillMaxSize(0.5f)
             )
         }
     }
@@ -101,30 +96,14 @@ fun Barcode(
 @Composable
 fun QRScanner(
     onQrCodeScanned: (result: String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val contextL = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(contextL) }
+    var hasCameraPermission by remember { mutableStateOf(false) }
 
-    var hasCameraPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                contextL,
-                Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED
-        )
-    }
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted ->
-            hasCameraPermission = granted
-        }
-    )
-
-    LaunchedEffect(Unit) {
-        launcher.launch(Manifest.permission.CAMERA)
-    }
+    RequestPermission(contextL, Manifest.permission.CAMERA) { hasCameraPermission = it }
 
 
     if (hasCameraPermission) {
@@ -132,35 +111,30 @@ fun QRScanner(
             factory = { context ->
                 val previewView = PreviewView(context)
                 val preview = Preview.Builder().build()
-                val selector = CameraSelector.Builder()
-                    .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-                    .build()
+                val selector =
+                    CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                        .build()
                 preview.setSurfaceProvider(previewView.surfaceProvider)
-                val imageAnalysis = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
+                val imageAnalysis =
+                    ImageAnalysis.Builder().setBackpressureStrategy(STRATEGY_KEEP_ONLY_LATEST)
+                        .build()
                 imageAnalysis.setAnalyzer(
                     ContextCompat.getMainExecutor(context),
                     QRCodeAnalyzer { result ->
                         result?.let { onQrCodeScanned(it) }
-                    }
-                )
+                    })
 
                 try {
                     cameraProviderFuture.get().unbindAll()
                     cameraProviderFuture.get().bindToLifecycle(
-                        lifecycleOwner,
-                        selector,
-                        preview,
-                        imageAnalysis
+                        lifecycleOwner, selector, preview, imageAnalysis
                     )
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
 
                 return@AndroidView previewView
-            },
-            modifier = modifier
+            }, modifier = modifier
         )
     }
 }

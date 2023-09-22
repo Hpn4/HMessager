@@ -115,7 +115,7 @@ public class ConversationStorage {
         String typeStr, name;
 
         if (type == MediaType.AUDIO) {
-            name = "audio_" + audioCount;
+            name = "audio_" + audioCount + ".aac";
             ++audioCount;
             typeStr = "audio";
         } else if (type == MediaType.DOCUMENT) {

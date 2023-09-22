@@ -1,6 +1,10 @@
 package com.hpn.hmessager.bl.conversation.message;
 
-import static com.hpn.hmessager.bl.conversation.message.MessageMetadata.*;
+import static com.hpn.hmessager.bl.conversation.message.MessageMetadata.OTHER;
+import static com.hpn.hmessager.bl.conversation.message.MessageMetadata.READ;
+import static com.hpn.hmessager.bl.conversation.message.MessageMetadata.RECEIVED;
+import static com.hpn.hmessager.bl.conversation.message.MessageMetadata.SENT;
+import static com.hpn.hmessager.bl.conversation.message.MessageMetadata.YOU;
 import static com.hpn.hmessager.bl.io.StorageManager.byteToDate;
 import static com.hpn.hmessager.bl.io.StorageManager.dateToByte;
 
@@ -13,23 +17,20 @@ import java.util.regex.Pattern;
 
 public class Message {
 
-    private final Charset charset = StandardCharsets.UTF_8;
-
+    // Constants: Header length + charset encoding of string message + regex to find only emojis
     private static final int MSG_HEADER_LENGTH = 2 + 8 * 3;
+    private static final Charset charset = StandardCharsets.UTF_8;
+    private static final Pattern pattern = Pattern.compile("\\w+|\\s+|\\p{P}+");
 
-    // Message metadata
-    private MessageMetadata m;
-
-    // Message data
-    private byte[] data;
 
     private final int id;
-
+    private byte[] data;
+    private MessageMetadata m;
     private MediaAttachment mediaAttachment;
+    private MessageType type;
 
     private String tmpString;
 
-    private MessageType type;
 
     public Message(MediaAttachment media, int id) {
         m = new MessageMetadata();
@@ -43,18 +44,13 @@ public class Message {
         this.id = id;
         this.data = encodeToBytes(data);
 
-        if (isOnlyEmoji(data))
-            type = MessageType.ONLY_EMOJI;
-        else
-            type = MessageType.TEXT;
+        type = isOnlyEmoji(data) ? MessageType.ONLY_EMOJI : MessageType.TEXT;
     }
 
     public Message(byte[] deciphered, Conversation c, int id) {
         parseMessage(deciphered, c);
         this.id = id;
     }
-
-    Pattern pattern = Pattern.compile("\\w+|\\s+|\\p{P}+");
 
     private boolean isOnlyEmoji(String text) {
         boolean emoji = !pattern.matcher(text).find();
@@ -85,18 +81,15 @@ public class Message {
         type = MessageType.fromCode(t);
 
         // Setup media attachment
-        if(type == MessageType.MEDIA)
-            mediaAttachment = new MediaAttachment(data, c.getContext());
+        if (type == MessageType.MEDIA) mediaAttachment = new MediaAttachment(data, c.getContext());
     }
 
     /**
-     *
      * @param forNetwork true if the message is for the network, false if it is for the storage
      * @return the message as a byte array plus the metadata
      */
     public byte[] constructByteArray(boolean forNetwork) {
-        if(type == MessageType.MEDIA)
-            data = mediaAttachment.constructMetadata(forNetwork);
+        if (type == MessageType.MEDIA) data = mediaAttachment.constructMetadata(forNetwork);
 
         byte[] msg = new byte[data.length + MSG_HEADER_LENGTH];
 
@@ -121,28 +114,25 @@ public class Message {
     }
 
     private String decodeToString(byte[] bytes) {
-        //return new String(Base64.decode(bytes, offset, length, Base64.DEFAULT), charset);
         return new String(bytes, charset);
     }
 
     private byte[] encodeToBytes(String string) {
-        //return Base64.encode(string.getBytes(charset), Base64.DEFAULT);
         return string.getBytes(charset);
     }
 
     public String getData() {
-        if (tmpString == null)
-            tmpString = decodeToString(data);
+        if (tmpString == null) tmpString = decodeToString(data);
 
         return tmpString;
     }
 
-    public byte[] getDataBytes() {
-        return data;
-    }
-
     public void setData(byte[] data) {
         this.data = data;
+    }
+
+    public byte[] getDataBytes() {
+        return data;
     }
 
     public MessageType getType() {

@@ -3,8 +3,14 @@ package com.hpn.hmessager.ui.utils
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.view.View
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
@@ -14,8 +20,7 @@ fun hideSystemBars(view: View) {
 
     WindowInsetsControllerCompat(window, view).let {
         it.hide(WindowInsetsCompat.Type.systemBars())
-        it.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        it.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 }
 
@@ -45,4 +50,22 @@ fun timeToString(time: Int): String {
     val sStr = if (s < 10) "0$s" else "$s"
 
     return "$mStr:$sStr"
+}
+
+@Composable
+fun RequestPermission(context: Context, permission: String, onPermissionChange: (Boolean) -> Unit) {
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            onPermissionChange(granted)
+        })
+
+    LaunchedEffect(Unit) {
+        onPermissionChange(
+            ContextCompat.checkSelfPermission(
+                context, permission
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+        launcher.launch(permission)
+    }
 }

@@ -60,9 +60,14 @@ If you forget your password, you will lose all your data and it's impossible to 
 
 - [x] End-to-end encryption with a double ratchet algorithm
 - [x] Send and receive text messages
-- [x] Send and receive images
-- [x] Choose images from gallery
-- [x] Take pictures with camera
+- [x] Send and receive emojis only messages (big emojis)
+- [x] Send and receive images and videos
+- [x] Send and receive audio messages (with waveform)
+- [x] Send and receive files
+- [x] Choose images/video from gallery
+- [x] Choose files/audio from file explorer
+- [x] Take pictures/video with camera
+- [x] Record audio with microphone
 
 Currently group conversations are not supported, it's only possible to chat with one person at a time.
 
@@ -76,7 +81,10 @@ Here an exemple of a conversation with the app.
 
 ## TODO
 
-- [ ] Add support for audio recording
-- [ ] Play audio messages
-- [ ] Play video messages
+- [ ] Add support to reply to a message (quote)
+- [ ] Add support for message reactions (emojis)
+- [ ] Add support for message deletion
+- [ ] Add support for text style in message (bold, italic, code, puce list, header...)
+- [ ] Add support for link preview
+- [ ] Group medias together (images and videos in a single message)
 - [ ] Add multiple themes

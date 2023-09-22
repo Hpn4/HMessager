@@ -1,5 +1,6 @@
 package com.hpn.hmessager.ui.activity
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -83,6 +84,7 @@ import com.hpn.hmessager.ui.composable.DrawMsg
 import com.hpn.hmessager.ui.composable.MessageTextField
 import com.hpn.hmessager.ui.composable.releasePlayer
 import com.hpn.hmessager.ui.theme.HMessagerTheme
+import com.hpn.hmessager.ui.utils.RequestPermission
 import java.io.File
 
 
@@ -139,7 +141,6 @@ class ConvActivity : ComponentActivity() {
         conv: Conversation,
         onBackButton: () -> Unit,
     ) {
-        val context = LocalContext.current
         BackHandler {
             onBackButton()
         }
@@ -149,9 +150,11 @@ class ConvActivity : ComponentActivity() {
             Surface(
                 modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
             ) {
+                val context = LocalContext.current
+
                 Box {
                     var scrollToBottom by remember { mutableStateOf(false) }
-                    Scaffold(topBar = { ConvTopBar("conv.remoteUser.name", onBackButton) },
+                    Scaffold(topBar = { ConvTopBar(conv.remoteUser.name, onBackButton) },
                         content = {
                             val lazyList = rememberLazyListState()
 
@@ -171,11 +174,13 @@ class ConvActivity : ComponentActivity() {
                                 }
                             }
 
+                            // Init conversation and load a first few messages
                             LaunchedEffect(Unit) {
                                 conv.initConv(context, msg)
                                 scrollToBottom = true
                             }
 
+                            // Load more messages when scrolling up
                             LaunchedEffect(remember { derivedStateOf { lazyList.firstVisibleItemIndex <= 3 } }) {
                                 if (lazyList.firstVisibleItemIndex <= 3) {
                                     for (i in 0..20) {
@@ -187,6 +192,7 @@ class ConvActivity : ComponentActivity() {
                                 }
                             }
 
+                            // Scroll to bottom when new message
                             LaunchedEffect(scrollToBottom) {
                                 if (scrollToBottom) {
                                     if (msg.isNotEmpty()) lazyList.scrollToItem(msg.size - 1)
@@ -285,10 +291,29 @@ class ConvActivity : ComponentActivity() {
                 }
             }
 
+            var audioRecorded by remember { mutableStateOf(false) }
+            var audioRecordedUri by remember { mutableStateOf<Uri?>(null) }
+            var hasMicroPermission by remember { mutableStateOf(false) }
+
+            RequestPermission(context, Manifest.permission.RECORD_AUDIO) { hasMicroPermission = it }
+
             val (id, description, onClick: () -> Unit) = if (message.isBlank() && uris.isEmpty()) {
                 Triple(
                     R.drawable.microphone_svgrepo_com, "Microphone"
-                ) {}
+                ) {
+                    if (audioRecorded) {
+                        MediaHelper.stopRecording()
+
+                        if (audioRecordedUri != null) onChosen(listOf(audioRecordedUri as Uri))
+                        audioRecorded = false
+                    } else if (hasMicroPermission) {
+                        val pairUriFile = getUriAndFile(context, MediaType.AUDIO)
+                        audioRecordedUri = pairUriFile.first
+
+                        MediaHelper.startRecording(context, pairUriFile.second)
+                        audioRecorded = true
+                    }
+                }
             } else {
                 Triple(
                     R.drawable.send_black_24dp, "Send"
@@ -481,6 +506,14 @@ class ConvActivity : ComponentActivity() {
     }
 
     private fun getUri(context: Context, mediaType: MediaType, name: String? = null): Uri {
+        return getUriAndFile(context, mediaType, name).first
+    }
+
+    private fun getUriAndFile(
+        context: Context,
+        mediaType: MediaType,
+        name: String? = null,
+    ): Pair<Uri, File> {
         val storage = conv?.conversationStorage as ConversationStorage
         val file =
             if (name.isNullOrEmpty()) storage.getMediaFile(mediaType) else storage.getMediaFile(
@@ -488,8 +521,10 @@ class ConvActivity : ComponentActivity() {
             ) as File
         file.createNewFile()
 
-        return FileProvider.getUriForFile(
+        val uri = FileProvider.getUriForFile(
             context, "com.hpn.hmessager.ui.activity.ConvActivity.provider", file
         )
+
+        return Pair(uri, file)
     }
 }

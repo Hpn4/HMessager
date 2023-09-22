@@ -25,6 +25,7 @@ public class MediaAttachment {
     private MediaAttachmentData data;
 
     private MediaType mediaType;
+
     private Uri file;
 
     // Constructor for media received from the network
