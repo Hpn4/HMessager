@@ -30,7 +30,7 @@
         tools:targetApi="31">
 
         <provider
-            android:authorities="com.hpn.hmessager.ui.activity.ConvActivity.provider"
+            android:authorities="com.hpn.hmessager.presentation.activity.ConvActivity.provider"
             android:name="androidx.core.content.FileProvider"
             android:exported="false"
             android:grantUriPermissions="true">
@@ -40,7 +40,7 @@
         </provider>
 
         <activity
-            android:name=".ui.activity.SettingsActivity"
+            android:name=".presentation.activity.SettingsActivity"
             android:configChanges="orientation|keyboard"
             android:exported="false"
             android:label="@string/title_activity_settings"
@@ -48,7 +48,7 @@
             android:theme="@style/Theme.HMessager"
             tools:ignore="LockedOrientationActivity" />
         <activity
-            android:name=".ui.activity.ConvActivity"
+            android:name=".presentation.activity.ConvActivity"
             android:configChanges="orientation|keyboard"
             android:exported="false"
             android:label="@string/title_activity_conv"
@@ -57,7 +57,7 @@
             android:windowSoftInputMode="adjustResize"
             tools:ignore="LockedOrientationActivity" />
         <activity
-            android:name=".ui.activity.ConvListActivity"
+            android:name=".presentation.activity.ConvListActivity"
             android:configChanges="orientation|keyboard"
             android:exported="false"
             android:label="@string/title_activity_conv_list"
@@ -65,7 +65,7 @@
             android:theme="@style/Theme.HMessager"
             tools:ignore="LockedOrientationActivity" />
         <activity
-            android:name=".ui.activity.NewConvActivity"
+            android:name=".presentation.activity.NewConvActivity"
             android:configChanges="orientation|keyboard"
             android:exported="false"
             android:label="@string/title_activity_conv_list"
@@ -73,7 +73,7 @@
             android:theme="@style/Theme.HMessager"
             tools:ignore="LockedOrientationActivity" />
         <activity
-            android:name=".ui.activity.MainActivity"
+            android:name=".presentation.activity.MainActivity"
             android:configChanges="orientation|keyboard"
             android:exported="true"
             android:screenOrientation="portrait"

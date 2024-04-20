@@ -1,4 +1,5 @@
 plugins {
+    id("org.jetbrains.kotlin.plugin.lombok") version "1.8.10"
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
@@ -52,6 +53,8 @@ android {
 }
 
 dependencies {
+    compileOnly("org.projectlombok:lombok:1.18.20")
+    annotationProcessor("org.projectlombok:lombok:1.18.20")
 
     implementation("androidx.core:core-ktx:1.12.0")
 
