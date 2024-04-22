@@ -1,28 +1,30 @@
 package com.hpn.hmessager.data.model.message;
 
-import static com.hpn.hmessager.converter.DataConverter.byteToInt;
+import static com.hpn.hmessager.converter.DataConverter.byteToLong;
 import static com.hpn.hmessager.converter.DataConverter.intToByte;
 
-import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
 
 import androidx.core.content.FileProvider;
 
+import com.hpn.hmessager.converter.MessageConverter;
 import com.hpn.hmessager.data.repository.ConversationStorage;
+import com.hpn.hmessager.data.repository.FileRepository;
 import com.hpn.hmessager.domain.utils.HByteArrayInputStream;
+import com.hpn.hmessager.domain.utils.Utils;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 import lombok.Getter;
 
 public class MediaAttachment {
+
+    private static final FileRepository fileRepository = new FileRepository(null);
 
     private final Context context;
 
@@ -34,54 +36,63 @@ public class MediaAttachment {
     @Getter
     private Uri file;
 
-    // Constructor for media received from the network
-    public MediaAttachment(byte[] metadata, byte[] media, ConversationStorage storage, Context context) {
+    private MediaAttachment(Context context) {
         this.context = context;
-        saveMedia(metadata, media, storage);
     }
 
-    // Constructor for the creation of a media attachment
-    public MediaAttachment(Uri uri, Context context) {
-        file = uri;
-        this.context = context;
-        setupMetadata(uri); // Get type, name and size
+    public static long getSizeFromMeta(byte[] metadata) {
+        return byteToLong(metadata, MessageConverter.MSG_HEADER_LENGTH + 1);
     }
 
-    // Constructor for media read from the disk
-    public MediaAttachment(byte[] metadata, Context context) {
-        this.context = context;
-        loadMetadataFromDisk(metadata);
-    }
+    public static MediaAttachment fromNetwork(byte[] metadata, byte[] media, ConversationStorage storage, Context context) {
+        MediaAttachment mediaAttachment = new MediaAttachment(context);
 
-    public static int getSizeFromMeta(byte[] metadata) {
-        return byteToInt(metadata, 1);
-    }
-
-    private void saveMedia(byte[] metadata, byte[] media, ConversationStorage storage) {
         // Read metadata
         HByteArrayInputStream bais = new HByteArrayInputStream(metadata);
 
-        mediaType = MediaType.fromCode(metadata[0]); // Type
-        data = (mediaType == MediaType.AUDIO) ? new AudioAttachmentData() : new MediaAttachmentData();
-        data.loadMetadata(bais, true);
+        MediaType type = MediaType.fromCode(bais.readByte());
+        MediaAttachmentData data = (type == MediaType.AUDIO) ? new AudioAttachmentData() : new MediaAttachmentData();
+
+        // Load metadata
+        data.decodeMetadata(bais, true);
 
         // Retrieve the file
-        File mediaFile = storage.getMediaFile(data.getName(), mediaType);
-        file = FileProvider.getUriForFile(context, "com.hpn.hmessager.ui.activity.ConvActivity.provider", mediaFile);
+        File mediaFile = storage.getMediaFile(data.getName(), type);
+        Uri file = FileProvider.getUriForFile(context, Utils.fileProvider, mediaFile);
 
-        // Write the file
-        try {
-            mediaFile.createNewFile();
+        // Write media to file
+        fileRepository.writeData(media, mediaFile);
 
-            BufferedOutputStream outputStream = new BufferedOutputStream(new FileOutputStream(mediaFile));
-            outputStream.write(media);
-            outputStream.flush();
-            outputStream.close();
-        } catch (IOException e) {
-            System.err.println(e.getMessage());
-        }
+        data.loadMetadata(file, context);
 
-        data.setupMetadata(file, context);
+        mediaAttachment.mediaType = type;
+        mediaAttachment.data = data;
+        mediaAttachment.file = file;
+
+        return mediaAttachment;
+    }
+
+    public static MediaAttachment fromDisk(byte[] meta, Context context) {
+        MediaAttachment mediaAttachment = new MediaAttachment(context);
+
+        HByteArrayInputStream bais = new HByteArrayInputStream(meta);
+
+        // Load type and path
+        MediaType type = MediaType.fromCode(bais.readByte());
+        Uri file = Uri.parse(bais.readString());
+
+        // Setup data based on type
+        MediaAttachmentData data = (type == MediaType.AUDIO) ? new AudioAttachmentData() : new MediaAttachmentData();
+
+        // Load metadata
+        data.loadMetadata(file, context);
+        data.decodeMetadata(bais, false);
+
+        mediaAttachment.data = data;
+        mediaAttachment.mediaType = type;
+        mediaAttachment.file = file;
+
+        return mediaAttachment;
     }
 
     /**
@@ -92,46 +103,34 @@ public class MediaAttachment {
      *
      * @param uri The uri of the file the user picked
      */
-    private void setupMetadata(Uri uri) {
-        ContentResolver contentResolver = context.getContentResolver();
+    public static MediaAttachment fromUri(Uri uri, Context context) {
+        MediaAttachment mediaAttachment = new MediaAttachment(context);
 
-        String mimeType = contentResolver.getType(uri);
-        mediaType = MediaType.fromMimeType(mimeType);
+        String mimeType = context.getContentResolver().getType(uri);
+        MediaType type = MediaType.fromMimeType(mimeType);
 
-        data = (mediaType == MediaType.AUDIO) ? new AudioAttachmentData() : new MediaAttachmentData();
+        MediaAttachmentData data = (type == MediaType.AUDIO) ? new AudioAttachmentData() : new MediaAttachmentData();
+        data.loadMetadata(uri, context);
 
-        data.setupMetadata(uri, context);
-    }
+        mediaAttachment.mediaType = type;
+        mediaAttachment.data = data;
+        mediaAttachment.file = uri;
 
-    private void loadMetadataFromDisk(byte[] meta) {
-        HByteArrayInputStream bais = new HByteArrayInputStream(meta);
-
-        mediaType = MediaType.fromCode(bais.readByte());
-        file = Uri.parse(bais.readString());
-
-        data = (mediaType == MediaType.AUDIO) ? new AudioAttachmentData() : new MediaAttachmentData();
-
-        data.extractNameAndSize(file, context);
-        data.loadMetadata(bais, false);
+        return mediaAttachment;
     }
 
     public byte[] readContent() {
         byte[] data = null;
-
         try {
-            BufferedInputStream inputStream = new BufferedInputStream(context.getContentResolver().openInputStream(file));
-            data = new byte[inputStream.available()];
-
-            inputStream.read(data);
-            inputStream.close();
-        } catch (IOException e) {
-            System.err.println(e.getMessage());
+            data = fileRepository.readAllData(context.getContentResolver().openInputStream(file));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
         }
 
         return data;
     }
 
-    public byte[] constructMetadata(boolean forNetwork) {
+    public byte[] encodeMetadata(boolean forNetwork) {
         ByteArrayOutputStream bais = new ByteArrayOutputStream();
 
         try {
@@ -145,11 +144,11 @@ public class MediaAttachment {
                 bais.write(fileNameBytes);
             }
 
-            data.constructMetadata(bais, forNetwork);
+            data.encodeMetadata(bais, forNetwork);
 
             return bais.toByteArray();
         } catch (IOException e) {
-            System.err.println(e.getMessage());
+            e.printStackTrace();
         }
 
         return null;

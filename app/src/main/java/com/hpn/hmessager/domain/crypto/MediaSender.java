@@ -1,8 +1,12 @@
 package com.hpn.hmessager.domain.crypto;
 
+import com.hpn.hmessager.converter.MessageConverter;
 import com.hpn.hmessager.data.model.Message;
+import com.hpn.hmessager.data.model.message.MediaAttachment;
 
 public class MediaSender {
+
+    private final MessageConverter messageConverter = new MessageConverter();
 
     private final SendingRatchet sendingRatchet;
     private byte[] key;
@@ -20,16 +24,21 @@ public class MediaSender {
         this.message = message;
         this.key = key;
         fragId = 0;
+        System.out.println("[MediaSender]: Init sending of: " + message);
         fragTot = (int) Math.ceil((double) message.getMediaAttachment().getSize() / Ratchet.MAX_MESSAGE_SIZE);
 
         mediaData = message.getMediaAttachment().readContent();
+        System.out.println("[MediaSender]: Read all metadata: " + mediaData.length);
     }
 
     public byte[] getFirstFragment() {
-        byte[] tmpData = message.getDataBytes();
-        byte[] firstFrag = sendingRatchet.constructMessage(message.constructByteArray(true), 0, fragTot, key);
+        System.out.println("[MediaSender]: prepare first fragment");
+        byte[] firstFragClear = messageConverter.encode(message, true);
+        byte[] firstFrag = sendingRatchet.constructMessage(firstFragClear, 0, fragTot, key);
 
-        message.setData(tmpData);
+        System.out.println("[MediaSender]: init sending of " + message.getMediaAttachment().getSize() + "b in " + fragTot + "fragments");
+        System.out.println("[MediaSender]: init sending of " + mediaData.length + "b in " + fragTot + "fragments");
+        System.out.println("[MediaSender]: init sending of " + MediaAttachment.getSizeFromMeta(firstFragClear) + "b in " + fragTot + "fragments");
 
         return firstFrag;
     }

@@ -66,10 +66,13 @@ public class X3DH {
             byte[] ms = KeyUtils.doX3DH(user.getIdentityKeys().getPrivateKey(), ekey.getPrivateKey(), remote.getIK().getRawPublicKey(), remote.getPubEK(), remote.isFirst());
 
             conv.createConversation(remote.getPubEK(), ekey, ms, remote.getConvId());
-            conv.setConversationStorage(new ConversationStorage(conv, storageManager));
 
-            storageManager.storeConversation(conv);
-            storageManager.storeLocalUser(user);
+            if (storageManager != null)
+            {
+                conv.setConversationStorage(new ConversationStorage(conv, storageManager));
+                storageManager.storeConversation(conv);
+                storageManager.storeLocalUser(user);
+            }
 
             return conv;
         } catch (GeneralSecurityException e) {

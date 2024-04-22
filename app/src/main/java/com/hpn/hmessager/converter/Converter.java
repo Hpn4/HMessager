@@ -46,7 +46,9 @@ public abstract class Converter<T> {
         return key;
     }
 
-    public abstract byte[] encode(T t);
+    public byte[] encode(T t) { return encode(t, null); }
+
+    public abstract byte[] encode(T t, Object other);
 
     public T decode(byte[] data) { return decode(data, null); }
 

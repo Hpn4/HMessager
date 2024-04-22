@@ -4,12 +4,16 @@ import com.hpn.hmessager.data.model.message.MediaAttachment;
 
 import java.security.GeneralSecurityException;
 
+import lombok.Getter;
+
 public class MediaReceiver {
 
     private byte[] key;
 
+    @Getter
     private byte[] firstFragment; // EG message
 
+    @Getter
     private byte[] data; // Media data
 
     private int offset;
@@ -25,7 +29,9 @@ public class MediaReceiver {
         this.firstFragment = firstFragment;
         offset = 0;
 
-        data = new byte[MediaAttachment.getSizeFromMeta(firstFragment)];
+        long size = MediaAttachment.getSizeFromMeta(firstFragment);
+        System.out.println("[MediaReceiver]: init receiving of " + size + "b in " + fragTot + "fragments");
+        data = new byte[(int)size];
     }
 
     public void receiveFragment(byte[] fragment) {
@@ -41,14 +47,6 @@ public class MediaReceiver {
 
     public boolean isComplete(int fragId) {
         return fragId == fragTot;
-    }
-
-    public byte[] getMedia() {
-        return data;
-    }
-
-    public byte[] getFirstFragment() {
-        return firstFragment;
     }
 
     public void clear() {

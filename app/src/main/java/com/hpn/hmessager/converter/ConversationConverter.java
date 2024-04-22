@@ -18,7 +18,7 @@ import java.security.Key;
 public class ConversationConverter extends Converter<Conversation> {
 
     @Override
-    public byte[] encode(Conversation c) {
+    public byte[] encode(Conversation c, Object other) {
         // Are stored:
         // - IK, ISK (public identity key and signing key of remote user) 64
         // - K, DH (public ratchet key and + and - for DH ratchet) 32 + 32 + 83

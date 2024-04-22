@@ -31,8 +31,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.hpn.hmessager.data.model.Preference
-import com.hpn.hmessager.data.repository.StorageManager
 import com.hpn.hmessager.data.model.user.Config
+import com.hpn.hmessager.data.repository.StorageManager
 import com.hpn.hmessager.presentation.composable.HButton
 import com.hpn.hmessager.presentation.composable.SimpleTextField
 import com.hpn.hmessager.presentation.composable.getTextFieldColors
@@ -133,7 +133,7 @@ class SettingsActivity : ComponentActivity() {
                             onClick = {
                                 val c =
                                     Config()
-                                c.setHost(ipA.toByte(), ipB.toByte(), ipC.toByte(), ipD.toByte())
+                                c.setHost(ipA.toShort(), ipB.toShort(), ipC.toShort(), ipD.toShort())
                                 c.port = port.toInt()
 
                                 user.config = c

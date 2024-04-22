@@ -5,10 +5,11 @@ import static com.hpn.hmessager.converter.DataConverter.intToByte;
 
 import android.content.Context;
 
+import com.hpn.hmessager.converter.MessageConverter;
 import com.hpn.hmessager.data.model.Conversation;
+import com.hpn.hmessager.data.model.Message;
 import com.hpn.hmessager.data.model.message.MediaAttachment;
 import com.hpn.hmessager.data.model.message.MediaType;
-import com.hpn.hmessager.data.model.Message;
 import com.hpn.hmessager.data.model.message.MessageType;
 import com.hpn.hmessager.domain.crypto.KeyUtils;
 
@@ -21,6 +22,8 @@ import java.security.GeneralSecurityException;
 public class ConversationStorage {
 
     private static final byte[] INFO = "msg chain key".getBytes(StandardCharsets.UTF_8);
+
+    private final MessageConverter messageConverter = new MessageConverter();
 
     private final Conversation conv;
 
@@ -126,7 +129,8 @@ public class ConversationStorage {
             ++documentCount;
             typeStr = "document";
         } else {
-            name = "media_" + mediaCount + ".jpg";
+            String ext = (type == MediaType.VIDEO) ? ".mp4" : ".jpg";
+            name = "media_" + mediaCount + ext;
             ++mediaCount;
             typeStr = "media";
         }
@@ -170,14 +174,12 @@ public class ConversationStorage {
             return null;
         }
 
-        Message m = new Message(plain, conv, messageIndex + 1);
+        // Decode the message
+        Message m = messageConverter.decode(plain, conv);
+        m.setId(messageIndex + 1);
 
-        // If the message is a media, we read the media related to it (the message contains an id of the media)
-        if (m.getType() == MessageType.MEDIA) {
-            MediaAttachment media = new MediaAttachment(m.getDataBytes(), context);
-
-            m.setMediaAttachment(media);
-        }
+        if (m.getType() == MessageType.MEDIA)
+            m.setMediaAttachment(MediaAttachment.fromDisk(m.getData(), context));
 
         return m;
     }
@@ -189,8 +191,9 @@ public class ConversationStorage {
         try {
             byte[] id = intToByte(messageCount);
             byte[] key = KeyUtils.HKDF(id, rootKey, INFO, 32);
+            byte[] data = messageConverter.encode(msg, false);
 
-            ciphertext = KeyUtils.encrypt(key, msg.constructByteArray(false));
+            ciphertext = KeyUtils.encrypt(key, data);
         } catch (GeneralSecurityException e) {
             System.err.println("Error while encrypting message");
             return;

@@ -8,8 +8,10 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 
@@ -123,19 +125,35 @@ public class FileRepository {
         encryptAndSave(plainTest, file, rk);
     }
 
-    public void writeData(byte[] data, File file) throws IOException {
-        BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(file));
+    public void writeData(byte[] data, File file) {
+        try {
+            file.createNewFile();
+            BufferedOutputStream bos = null;
+            bos = new BufferedOutputStream(new FileOutputStream(file));
 
-        bos.write(data);
-        bos.flush();
-        bos.close();
+            bos.write(data);
+            bos.flush();
+            bos.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public byte[] readAllData(File file) {
+        try {
+            return readAllData(new FileInputStream(file));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    public byte[] readAllData(InputStream stream) {
         byte[] tmp;
         // Read
         try {
-            BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+            BufferedInputStream bis = new BufferedInputStream(stream);
 
             tmp = new byte[bis.available()];
 
@@ -154,7 +172,7 @@ public class FileRepository {
             byte[] ciphered = KeyUtils.encrypt(rk, plainText);
 
             writeData(ciphered, file);
-        } catch (GeneralSecurityException | IOException e) {
+        } catch (GeneralSecurityException e) {
             System.err.println(e.getMessage());
             return false;
         }

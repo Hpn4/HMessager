@@ -175,7 +175,7 @@ fun DrawMsg(message: Message) {
 private fun DrawEmojiOnlyMsg(message: Message) {
     DrawStandardMsg(message, drawBox = false) {
         Text(
-            text = message.data, fontSize = 50.sp, lineHeight = 60.sp,
+            text = message.text, fontSize = 50.sp, lineHeight = 60.sp,
         )
     }
 }
@@ -184,7 +184,7 @@ private fun DrawEmojiOnlyMsg(message: Message) {
 private fun DrawTextMsg(message: Message) {
     DrawStandardMsg(message) {
         Text(
-            text = message.data, color = MaterialTheme.colorScheme.onPrimary
+            text = message.text, color = MaterialTheme.colorScheme.onPrimary
         )
     }
 }

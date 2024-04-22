@@ -25,16 +25,16 @@ public class AudioAttachmentData extends MediaAttachmentData {
 
     private List<Integer> waveform;
 
-    public void setupMetadata(Uri uri, Context context) {
-        super.setupMetadata(uri, context);
+    public void loadMetadata(Uri uri, Context context) {
+        super.loadMetadata(uri, context);
         Pair<List<Integer>, Integer> metadata = HMediaHelper.getAudioMetadata(context, uri);
 
         waveform = metadata.first;
         duration = metadata.second;
     }
 
-    public void loadMetadata(HByteArrayInputStream bais, boolean fromNetwork) {
-        super.loadMetadata(bais, fromNetwork);
+    public void decodeMetadata(HByteArrayInputStream bais, boolean fromNetwork) {
+        super.decodeMetadata(bais, fromNetwork);
 
         if (!fromNetwork) {
             duration = bais.readInt();
@@ -46,8 +46,8 @@ public class AudioAttachmentData extends MediaAttachmentData {
         }
     }
 
-    public void constructMetadata(ByteArrayOutputStream baos, boolean forNetwork) throws IOException {
-        super.constructMetadata(baos, forNetwork);
+    public void encodeMetadata(ByteArrayOutputStream baos, boolean forNetwork) throws IOException {
+        super.encodeMetadata(baos, forNetwork);
 
         if (!forNetwork) {
             baos.write(intToByte(duration));

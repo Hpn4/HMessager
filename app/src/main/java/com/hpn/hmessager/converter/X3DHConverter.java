@@ -12,6 +12,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.security.Key;
+import java.util.Arrays;
 
 /**
  * X3DHConverter class
@@ -25,7 +26,7 @@ import java.security.Key;
  */
 public class X3DHConverter extends Converter<X3DHData> {
     @Override
-    public byte[] encode(X3DHData x3DHData) {
+    public byte[] encode(X3DHData x3DHData, Object other) {
         int size = KeyUtils.DH_PUB_KEY_SIZE * 2 + KeyUtils.SIGN_PUB_KEY_SIZE + 5;
 
         try (ByteArrayOutputStream bos = new ByteArrayOutputStream(size)) {
@@ -34,6 +35,13 @@ public class X3DHConverter extends Converter<X3DHData> {
             bos.write(x3DHData.getSK().getRawPublicKey()); // pubSK
             bos.write(intToByte(x3DHData.getConvId())); // convID
             bos.write(x3DHData.isFirst() ? 1 : 0);
+
+            System.out.println("Encode:");
+            System.out.println("- EK: " + Arrays.toString(x3DHData.getPubEK()));
+            System.out.println("- IK: " + Arrays.toString(x3DHData.getIK().getRawPublicKey()));
+            System.out.println("- SK: " + Arrays.toString(x3DHData.getSK().getRawPublicKey()));
+            System.out.println("- ID: " + x3DHData.getConvId());
+            System.out.println("- FI: " + x3DHData.isFirst());
 
             return bos.toByteArray();
         } catch (IOException e) {
@@ -62,6 +70,13 @@ public class X3DHConverter extends Converter<X3DHData> {
             // Set additional data
             x3DHData.setConvId(bis.readInt());
             x3DHData.setFirst(bis.read() == 1); // Is it the first message of the conversation?
+
+            System.out.println("Decode:");
+            System.out.println("- EK: " + Arrays.toString(x3DHData.getPubEK()));
+            System.out.println("- IK: " + Arrays.toString(x3DHData.getIK().getRawPublicKey()));
+            System.out.println("- SK: " + Arrays.toString(x3DHData.getSK().getRawPublicKey()));
+            System.out.println("- ID: " + x3DHData.getConvId());
+            System.out.println("- FI: " + x3DHData.isFirst());
         } catch (GeneralSecurityException | IOException e) {
             System.out.println(e.getMessage());
             return null;

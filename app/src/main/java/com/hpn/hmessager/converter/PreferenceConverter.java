@@ -10,7 +10,7 @@ import java.io.IOException;
 
 public class PreferenceConverter extends Converter<Preference> {
 
-    public byte[] encode(Preference pref) {
+    public byte[] encode(Preference pref, Object other) {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
         try {

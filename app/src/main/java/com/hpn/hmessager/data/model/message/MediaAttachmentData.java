@@ -27,7 +27,7 @@ public class MediaAttachmentData {
     public MediaAttachmentData() {
     }
 
-    public void extractNameAndSize(Uri uri, Context context) {
+    public void loadMetadata(Uri uri, Context context) {
         ContentResolver resolver = context.getContentResolver();
         Cursor cursor = resolver.query(uri, null, null, null, null);
         boolean metaLoaded = false;
@@ -52,18 +52,14 @@ public class MediaAttachmentData {
         }
     }
 
-    public void setupMetadata(Uri uri, Context context) {
-        extractNameAndSize(uri, context);
-    }
-
-    public void loadMetadata(HByteArrayInputStream bais, boolean fromNetwork) {
+    public void decodeMetadata(HByteArrayInputStream bais, boolean fromNetwork) {
         if(fromNetwork) {
             size = bais.readLong();
             name = bais.readString();
         }
     }
 
-    public void constructMetadata(ByteArrayOutputStream baos, boolean forNetwork) throws IOException {
+    public void encodeMetadata(ByteArrayOutputStream baos, boolean forNetwork) throws IOException {
         if (forNetwork) {
             byte[] nameBytes = name.getBytes(StandardCharsets.UTF_8);
 

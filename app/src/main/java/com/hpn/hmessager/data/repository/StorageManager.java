@@ -17,7 +17,6 @@ import com.hpn.hmessager.domain.crypto.KeyUtils;
 import com.hpn.hmessager.domain.service.ConversationService;
 
 import java.io.File;
-import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 
@@ -98,7 +97,7 @@ public class StorageManager {
                 }
 
                 convs.add(meta);
-                System.out.println("Conv: " + file.getName() + " " + meta.getName() + " " + meta.getAvatarUrl());
+                System.out.println("[StorageManager]: Convs: Name: " + meta.getName() + ", ID: " + file.getName());
             }
 
         return convs;
@@ -163,10 +162,6 @@ public class StorageManager {
     }
 
     public void storePreference(Preference pref) {
-        try {
-            io.writeData(preferenceConverter.encode(pref), io.getPrefFile());
-        } catch (IOException e) {
-            System.out.println(e.getMessage());
-        }
+        io.writeData(preferenceConverter.encode(pref), io.getPrefFile());
     }
 }

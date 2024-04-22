@@ -37,7 +37,7 @@ public class LocalUserConverter extends Converter<LocalUser> {
         }
     }
 
-    public byte[] encode(LocalUser user) {
+    public byte[] encode(LocalUser user, Object other) {
         // Create the plain data (4: number of conv, 4: port number, 4: server ip)
         int size = DH_PUB_KEY_SIZE + DH_PRIV_KEY_SIZE + SIGN_PUB_KEY_SIZE + SIGN_PRIV_KEY_SIZE + 4 + 4 + 4;
 
@@ -59,7 +59,12 @@ public class LocalUserConverter extends Converter<LocalUser> {
 
             // Config
             bos.write(intToByte(user.getConfig().getPort()));
-            bos.write(user.getConfig().getHost());
+
+            short[] host = user.getConfig().getHost();
+            byte[] write = new byte[4];
+            for (int i = 0; i < 4; ++i)
+                write[i] = (byte) host[i];
+            bos.write(write);
 
             return bos.toByteArray();
         } catch (IOException e) {
@@ -84,7 +89,13 @@ public class LocalUserConverter extends Converter<LocalUser> {
 
             Config config = new Config();
             config.setPort(bis.readInt());
-            config.setHost(bis.readBytes(4));
+
+            short[] host = new short[4];
+            byte[] read = bis.readBytes(4);
+            for (int i = 0; i < 4; ++i)
+                host[i] = (short) (read[i] & 0xFF);
+
+            config.setHost(host);
 
             LocalUser lo = new LocalUser(idKey, signKey, convCount);
             lo.setConfig(config);

@@ -72,13 +72,14 @@ import androidx.core.content.FileProvider
 import androidx.core.view.WindowCompat
 import com.hpn.hmessager.R
 import com.hpn.hmessager.data.model.Conversation
-import com.hpn.hmessager.domain.service.ConversationService
+import com.hpn.hmessager.data.model.Message
 import com.hpn.hmessager.data.model.message.MediaType
 import com.hpn.hmessager.data.repository.ConversationStorage
-import com.hpn.hmessager.domain.service.NetworkService
 import com.hpn.hmessager.data.repository.StorageManager
+import com.hpn.hmessager.domain.service.ConversationService
+import com.hpn.hmessager.domain.service.NetworkService
 import com.hpn.hmessager.domain.utils.HMediaHelper
-import com.hpn.hmessager.data.model.Message
+import com.hpn.hmessager.domain.utils.Utils
 import com.hpn.hmessager.presentation.composable.ConvTopBar
 import com.hpn.hmessager.presentation.composable.DrawMsg
 import com.hpn.hmessager.presentation.composable.MessageTextField
@@ -170,7 +171,7 @@ class ConvActivity : ComponentActivity() {
                                 .fillMaxSize(),
                             state = lazyList,
                             contentPadding = PaddingValues(10.dp, 20.dp, 10.dp, 10.dp),
-                            verticalArrangement = Arrangement.spacedBy(1.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             items(msg) { message ->
                                 DrawMsg(message)
@@ -238,7 +239,7 @@ class ConvActivity : ComponentActivity() {
         val onTakePicture: () -> Unit = {
             tmpUriPicture = getUri(context, MediaType.IMAGE)
 
-            takePicture.launch(tmpUriPicture)
+            takePicture.launch(tmpUriPicture as Uri)
         }
 
         Row(
@@ -461,7 +462,7 @@ class ConvActivity : ComponentActivity() {
                 ) {
                     tmpUriVideo = getUri(context, MediaType.VIDEO)
 
-                    takeVideo.launch(tmpUriVideo)
+                    takeVideo.launch(tmpUriVideo as Uri)
                 }
             }
         }
@@ -517,7 +518,7 @@ class ConvActivity : ComponentActivity() {
         file.createNewFile()
 
         val uri = FileProvider.getUriForFile(
-            context, "com.hpn.hmessager.ui.activity.ConvActivity.provider", file
+            context, Utils.fileProvider, file
         )
 
         return Pair(uri, file)

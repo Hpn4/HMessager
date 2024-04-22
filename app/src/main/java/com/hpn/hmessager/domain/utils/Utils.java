@@ -12,6 +12,8 @@ import java.time.ZoneId;
 
 public class Utils {
 
+    public final static String fileProvider = "com.hpn.hmessager.presentation.activity.ConvActivity.provider";
+
     @RequiresApi(api = Build.VERSION_CODES.O)
     public static String getDateString(Instant instant) {
         LocalDate realDate = instant.atZone(ZoneId.systemDefault()).toLocalDate();

@@ -11,17 +11,17 @@ public class Config {
 
     private int port;
 
-    private byte[] host;
+    private short[] host;
 
     public Config() {
-        this(8765, new byte[] {10, 0, 1, 33});
+        this(8765, new short[] {10, 0, 0, 1});
     }
 
     public String getHostString() {
         return (host[0] & 0xFF) + "." + (host[1] & 0xFF) + "." + (host[2] & 0xFF) + "." + (host[3] & 0xFF);
     }
 
-    public void setHost(byte a, byte b, byte c, byte d) {
-        this.host = new byte[] {a, b, c, d};
+    public void setHost(short a, short b, short c, short d) {
+        this.host = new short[] {a, b, c, d};
     }
 }

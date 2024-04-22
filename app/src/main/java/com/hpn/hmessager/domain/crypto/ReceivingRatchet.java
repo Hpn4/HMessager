@@ -29,7 +29,7 @@ public class ReceivingRatchet extends Ratchet {
             System.arraycopy(msg, HEADER_ROW_SIZE * METADATA_ROW_I + METADATA_SIZE, ciphertext, 0, ciphertext.length);
 
             if (!checkSignature(msg, ciphertext)) {
-                System.out.println("Signature check failed");
+                System.out.println("[ReceivingRatchet]: Signature check failed");
                 return false;
             }
 
@@ -40,12 +40,13 @@ public class ReceivingRatchet extends Ratchet {
 
             // Check if the message as multiple fragments
             if (fragTot > 0 && fragId > 0) {
+                System.out.println("[ReceivingRatchet]: Media " + fragId + "/" + fragTot + " fragments");
                 mediaReceiver.receiveFragment(ciphertext);
 
                 // If all fragments have been received, send the assembled media to the conversation
                 if (mediaReceiver.isComplete(fragId)) {
-                    System.out.println("[ ReceivingRatchet ] Media received in " + fragTot + " fragments");
-                    conv.receiveMedia(mediaReceiver.getFirstFragment(), mediaReceiver.getMedia());
+                    System.out.println("[ReceivingRatchet]: Media received in " + fragTot + " fragments");
+                    conv.receiveMedia(mediaReceiver.getFirstFragment(), mediaReceiver.getData());
 
                     mediaReceiver.clear();
                 }
@@ -54,6 +55,7 @@ public class ReceivingRatchet extends Ratchet {
             }
 
             byte[] messageKey = updateKey(msg);
+            System.out.println("[ReceivingRatchet]: KEY: " + Arrays.toString(messageKey));
             byte[] deciphered = KeyUtils.decrypt(messageKey, ciphertext);
 
             if (fragTot > 0 && fragId == 0)
@@ -66,8 +68,7 @@ public class ReceivingRatchet extends Ratchet {
             // - If the signature/message is not encrypted with the right key.
             // - Error in diffieHellman function.
             // - If an algorithm is not supported/found.
-
-            System.err.println(e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }

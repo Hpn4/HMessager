@@ -1,9 +1,9 @@
 package com.hpn.hmessager.domain.service;
 
-import com.hpn.hmessager.domain.crypto.MediaSender;
-import com.hpn.hmessager.domain.crypto.Ratchet;
 import com.hpn.hmessager.data.model.user.Config;
 import com.hpn.hmessager.data.model.user.LocalUser;
+import com.hpn.hmessager.domain.crypto.MediaSender;
+import com.hpn.hmessager.domain.crypto.Ratchet;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -28,6 +28,7 @@ public class NetworkService {
     public static void connect(LocalUser user) {
         Config c = user.getConfig();
         Request.Builder builder = new Request.Builder().url("ws://" + c.getHostString() + ":" + c.getPort());
+        System.out.println("[NetworkService]: Connect to server: " + c.getHostString() + ":" + c.getPort());
 
         w = client.newWebSocket(builder.build(), new HWebSocketListener(user));
     }
@@ -44,16 +45,19 @@ public class NetworkService {
 
         w.send(ByteString.of(sender.getFirstFragment()));
 
-        for (int i = 0; i < sender.getFragCount(); i++)
+        for (int i = 0; i < sender.getFragCount(); i++) {
+            System.out.println("[NetworkService]: send media " + i + "/" + sender.getFragCount() + "fragments");
             w.send(ByteString.of(sender.getNextFragment()));
+        }
 
-        System.out.println("[ PaquetManager ] Media sent in " + sender.getFragCount() + " fragments");
+        System.out.println("[NetworkService]: send media in " + sender.getFragCount() + " fragments");
         sender.clear();
     }
 
     public static void sendMessage(byte[] msg) {
         if (w == null) return;
 
+        System.out.println("[NetworkService]: send message: " + msg.length + "b");
         w.send(ByteString.of(msg));
     }
 
@@ -69,9 +73,8 @@ public class NetworkService {
         @Override
         public void onFailure(@NotNull WebSocket webSocket, @NotNull Throwable t, @Nullable Response response) {
             super.onFailure(webSocket, t, response);
-            System.out.println("onFailure: " + t.getMessage());
-            t.printStackTrace();
 
+            System.out.println("[NetworkService]: failed: " + t);
            // PaquetManager.close(); TODO: uncomment this line
            // PaquetManager.connect(user);
         }
@@ -79,7 +82,7 @@ public class NetworkService {
         @Override
         public void onClosed(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
             super.onClosed(webSocket, code, reason);
-            System.out.println("onClosed: " + reason);
+            System.out.println("[NetworkService]: Stream closed: " + reason);
         }
 
         @Override
@@ -97,14 +100,18 @@ public class NetworkService {
             // Extract conv id from metadata in header
             int convId = Ratchet.getConvIdFromHeader(msg);
 
+            System.out.println("[NetworkService]: received message: " + msg.length + "b -> " + convId);
+
             // Redirect to correct conversations
-            ConversationService.getConversation(convId).receiveMessageFromIO(msg);
+            if (!ConversationService.getConversation(convId).getReceivingRatchet().receiveMessage(msg))
+                System.out.println("[NetworkService]: ERROR: failed to decode message");
         }
 
         @Override
         public void onOpen(@NotNull WebSocket webSocket, @NotNull Response response) {
             super.onOpen(webSocket, response);
 
+            System.out.println("[NetworkService]: Connected to server, send pub IK");
             webSocket.send(ByteString.of(user.getIdentityKeys().getRawPublicKey()));
         }
     }

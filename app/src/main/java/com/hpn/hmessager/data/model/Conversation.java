@@ -5,6 +5,7 @@ import android.net.Uri;
 
 import androidx.compose.runtime.snapshots.SnapshotStateList;
 
+import com.hpn.hmessager.converter.MessageConverter;
 import com.hpn.hmessager.data.model.message.MediaAttachment;
 import com.hpn.hmessager.data.model.message.MessageType;
 import com.hpn.hmessager.domain.crypto.ReceivingRatchet;
@@ -18,6 +19,7 @@ import com.hpn.hmessager.domain.service.ConversationService;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -26,6 +28,8 @@ import lombok.Setter;
 
 @Getter
 public class Conversation {
+
+    private static final MessageConverter messageConverter = new MessageConverter();
 
     private final LocalUser localUser;
     private final User remoteUser;
@@ -64,6 +68,7 @@ public class Conversation {
 
         sendingRatchet.setChainKey(rootKey);
         receivingRatchet.setChainKey(rootKey);
+        System.out.println("REMOVE THIS: MS: " + Arrays.toString(rootKey));
 
         // Register the conversation
         localUser.addConversation();
@@ -71,13 +76,17 @@ public class Conversation {
     }
 
     public void receiveMedia(byte[] metadata, byte[] media) {
-        Message message = new Message(metadata, this, conversationStorage.getLastId());
+        Message message = messageConverter.decode(metadata, this);
+        message.setId(conversationStorage.getLastId());
         message.getMetadata().setReceivedDate(new Date());
         message.getMetadata().setUser(remoteUser);
 
+        System.out.println("[Conversation]: receiveMedia: message created with metadata");
+
         if (media != null) {
-            MediaAttachment mediaAttachment = new MediaAttachment(message.getDataBytes(), media, conversationStorage, context);
+            MediaAttachment mediaAttachment = MediaAttachment.fromNetwork(message.getData(), media, conversationStorage, context);
             message.setMediaAttachment(mediaAttachment);
+            System.out.println("[Conversation]: receiveMedia: create media attachment and save to disk");
         }
 
         addToMessagesList(message);
@@ -88,14 +97,13 @@ public class Conversation {
         receiveMedia(msg, null);
     }
 
-    public void receiveMessageFromIO(byte[] msg) {
-        if(!receivingRatchet.receiveMessage(msg))
-            System.err.println("Error while getting message");
-    }
-
     public void sendMedias(List<Uri> medias) {
-        for (Uri media : medias)
-            sendMessage(new Message(new MediaAttachment(media, context), conversationStorage.getLastId()));
+        for (Uri media : medias) {
+            System.out.println("[Conversation] sendMedias: " + media);
+            Message message = new Message(MediaAttachment.fromUri(media, context), conversationStorage.getLastId());
+            System.out.println("[Conversation] sendMedia: " + message.getType());
+            sendMessage(message);
+        }
     }
 
     public void sendText(String msg) {
@@ -107,10 +115,14 @@ public class Conversation {
         message.getMetadata().setUser(localUser);
 
         addToMessagesList(message);
+        System.out.println("[Conversation] sendMessage: before storing");
         conversationStorage.storeMessage(message);
+        System.out.println("[Conversation] sendMessage: after storing");
 
-        if (message.getType() == MessageType.MEDIA)
+        if (message.getType() == MessageType.MEDIA) {
+            System.out.println("[Conversation] Sending media");
             NetworkService.sendMedia(sendingRatchet.constructMediaSender(message));
+        }
         else NetworkService.sendMessage(sendingRatchet.constructMessage(message));
     }
 
@@ -129,7 +141,6 @@ public class Conversation {
             Message message = conversationStorage.readMessage(context);
             if (message != null) insertStartToMessagesList(message);
         }
-
     }
 
     private void addToMessagesList(Message msg) {
@@ -157,7 +168,7 @@ public class Conversation {
 
         Message last = !messages.isEmpty() ? messages.get(messages.size() - 1) : null;
         if (last != null) {
-            if (last.getType().isText()) metadata.setLastMessage(last.getData());
+            if (last.getType().isText()) metadata.setLastMessage(last.getText());
             else metadata.setLastMessage("Media");
 
             metadata.setLastMessageDate(last.getMetadata().getSentDate());

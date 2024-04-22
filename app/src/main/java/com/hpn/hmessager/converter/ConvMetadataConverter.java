@@ -13,7 +13,7 @@ import java.nio.charset.StandardCharsets;
 public class ConvMetadataConverter extends Converter<ConvMetadata> {
 
     @Override
-    public byte[] encode(ConvMetadata metadata) {
+    public byte[] encode(ConvMetadata metadata, Object other) {
         try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
             // Conversation name
             byte[] tmp = metadata.getName().getBytes(StandardCharsets.UTF_8);

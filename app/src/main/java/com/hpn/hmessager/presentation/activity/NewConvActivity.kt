@@ -46,10 +46,10 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.hpn.hmessager.R
 import com.hpn.hmessager.data.model.ConvMetadata
-import com.hpn.hmessager.domain.service.ConversationService
+import com.hpn.hmessager.data.repository.StorageManager
 import com.hpn.hmessager.domain.crypto.KeyUtils
 import com.hpn.hmessager.domain.crypto.X3DH
-import com.hpn.hmessager.data.repository.StorageManager
+import com.hpn.hmessager.domain.service.ConversationService
 import com.hpn.hmessager.presentation.composable.HButton
 import com.hpn.hmessager.presentation.composable.SimpleTextField
 import com.hpn.hmessager.presentation.composable.TopBar
@@ -142,6 +142,7 @@ class NewConvActivity : ComponentActivity() {
                             if (!isScanned) {
                                 qrCodeRemote = code
                                 isScanned = true
+                                qrCodeLocal = auth.generateQrCode(false)
                             }
                         })
                     } else {
@@ -160,7 +161,6 @@ class NewConvActivity : ComponentActivity() {
                 HButton(
                     onClick = {
                         isScanMode = !isScanMode
-                        if (isScanMode) qrCodeLocal = auth.generateQrCode(!isScanned)
                     }, text = if (isScanMode) "Code" else "Scan"
                 )
 

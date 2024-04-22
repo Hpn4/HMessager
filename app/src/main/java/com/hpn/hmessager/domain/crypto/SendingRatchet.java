@@ -2,12 +2,16 @@ package com.hpn.hmessager.domain.crypto;
 
 import static com.hpn.hmessager.converter.DataConverter.intToByte;
 
+import com.hpn.hmessager.converter.MessageConverter;
 import com.hpn.hmessager.data.model.Conversation;
 import com.hpn.hmessager.data.model.Message;
 
 import java.security.GeneralSecurityException;
+import java.util.Arrays;
 
 public class SendingRatchet extends Ratchet {
+
+    private final MessageConverter messageConverter = new MessageConverter();
 
     private final MediaSender mediaSender;
 
@@ -17,6 +21,7 @@ public class SendingRatchet extends Ratchet {
     }
 
     public MediaSender constructMediaSender(Message message) {
+        System.out.println("[SendingRatchet]: Setup media sender");
         mediaSender.clear();
 
         try {
@@ -27,7 +32,7 @@ public class SendingRatchet extends Ratchet {
 
             mediaSender.initSending(message, k);
         } catch (GeneralSecurityException e) {
-            System.err.println(e.getMessage());
+            e.printStackTrace();
             return null;
         }
 
@@ -39,9 +44,11 @@ public class SendingRatchet extends Ratchet {
             KeyUtils.ChainMessageK chainMessageK = KeyUtils.deriveCKandMK(chainKey);
             chainKey = chainMessageK.getChainKey();
 
-            return constructMessage(message.constructByteArray(true), 0, 0, chainMessageK.getMessageKey());
+            byte[] data = messageConverter.encode(message, true);
+
+            return constructMessage(data, 0, 0, chainMessageK.getMessageKey());
         } catch (GeneralSecurityException e) {
-            System.err.println(e.getMessage());
+            e.printStackTrace();
         }
 
         return null;
@@ -50,6 +57,8 @@ public class SendingRatchet extends Ratchet {
     protected byte[] constructMessage(byte[] plain, int fragId, int fragTot, byte[] key) {
         byte[] sendingRatchetKey = conv.getDhKeys().getRawPublicKey();
         byte[] metadata = new byte[METADATA_SIZE];
+
+        System.out.println("[SendingRatchet]: KEY: " + Arrays.toString(key));
 
         // Build metadata
         System.arraycopy(intToByte(conv.getDestConvId()), 0, metadata, 0, 4);
@@ -76,7 +85,7 @@ public class SendingRatchet extends Ratchet {
 
             return msg;
         } catch (GeneralSecurityException e) {
-            System.err.println(e.getMessage());
+            e.printStackTrace();
         }
 
         return null;
